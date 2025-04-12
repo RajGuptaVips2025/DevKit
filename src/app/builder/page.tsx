@@ -16,6 +16,8 @@ import { Loader } from '@/components/Loader';
 import { TabView } from '@/components/TabView';
 import { PreviewFrame } from '@/components/PreviewFrame';
 import Link from 'next/link';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export default function Builder() {
   const searchParams = useSearchParams();
@@ -202,6 +204,26 @@ export default function Builder() {
     init();
   };
 
+  const handleExportZip = async () => {
+    const zip = new JSZip();
+  
+    const addFilesToZip = (zipFolder: JSZip, items: FileItem[]) => {
+      items.forEach((item) => {
+        if (item.type === 'folder' && item.children) {
+          const newFolder = zipFolder.folder(item.name);
+          if (newFolder) addFilesToZip(newFolder, item.children);
+        } else if (item.type === 'file') {
+          zipFolder.file(item.name || 'untitled.txt', item.content || '');
+        }
+      });
+    };
+  
+    addFilesToZip(zip, files);
+  
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, `${prompt || 'project'}-export.zip`);
+  };
+
   return (
     <div className="min-h-screen bg-black flex flex-col">
       <div className="w-full bg-black border-b border-[#2c2c3a] px-6 py-3 flex justify-between items-center">
@@ -251,10 +273,24 @@ export default function Builder() {
             </div>
           </div>
 
-          <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 text-white border border-[#2c2c3a] shadow-md">
+          {/* <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 text-white border border-[#2c2c3a] shadow-md">
             <h2 className="text-lg font-semibold mb-2">📁 File Explorer</h2>
+            <Button onClick={handleExportZip} className="mt-2">
+              Export ZIP
+            </Button>
+            <FileExplorer files={files} onFileSelect={setSelectedFile} />
+          </div> */}
+
+          <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 text-white border border-[#2c2c3a] shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold">📁 File Explorer</h2>
+              <Button onClick={handleExportZip}>
+                Export ZIP
+              </Button>
+            </div>
             <FileExplorer files={files} onFileSelect={setSelectedFile} />
           </div>
+
 
           <div className="col-span-2 rounded-xl p-4 h-[calc(100vh-8rem)] border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col">
             <TabView activeTab={activeTab} onTabChange={setActiveTab} />
