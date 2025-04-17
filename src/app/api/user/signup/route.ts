@@ -1,3 +1,41 @@
+// import { NextRequest, NextResponse } from "next/server";
+// import User from "@/models/userModel";
+// import bcryptjs from 'bcryptjs';
+// import dbConnect from "@/dbConfig/dbConfig";
+
+// dbConnect();
+
+// export async function POST(request: NextRequest) {
+//     try {
+//         console.log('first')
+//         const reqBody = await request.json();
+//         const { name, email, password } = reqBody;
+
+//         // Check if the user already exists
+//         const existingUser = await User.findOne({ email });
+//         if (existingUser) {
+//             return NextResponse.json({ message: "User already exists" }, { status: 400 });
+//         }
+
+//         //hash password
+//         const salt = await bcryptjs.genSalt(10);
+//         const hashPassword=await bcryptjs.hash(password, salt);
+
+//         // Create a new user
+//         const newUser = new User({
+//             username:name,
+//             email,
+//             password:hashPassword, // Ideally, hash the password before saving
+//         });
+//         await newUser.save();
+
+//         return NextResponse.json({ message: "User created successfully", user: newUser }, { status: 201 });
+//     } catch (error: any) {
+//         return NextResponse.json({ error: error.message }, { status: 500 });
+//     }
+// }
+
+
 import { NextRequest, NextResponse } from "next/server";
 import User from "@/models/userModel";
 import bcryptjs from "bcryptjs";

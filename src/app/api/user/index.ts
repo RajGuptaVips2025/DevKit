@@ -1,3 +1,82 @@
+// import dbConnect from "@/dbConfig/dbConfig";
+// import User from "@/models/userModel";
+// import { NextApiRequest, NextApiResponse } from "next";
+
+// export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+//   await dbConnect();
+
+//   const { method, query, body } = req;
+//   console.log(method, query, body)
+
+//   switch (method) {
+//     case "GET":
+//       try {
+//         const { userId } = query as { userId: string };
+//         if (!userId) {
+//           return res.status(400).json({ error: "User ID is required" });
+//         }
+
+//         const user = await User.findById(userId).populate("projects groups");
+//         if (!user) {
+//           return res.status(404).json({ error: "User not found" });
+//         }
+
+//         res.status(200).json(user);
+//       } catch (error: any) {
+//         res.status(500).json({ error: error.message });
+//       }
+//       break;
+
+//     case "PUT":
+//       try {
+//         const { userId } = query as { userId: string };
+//         const { name, email, profilePic } = body;
+
+//         if (!userId) {
+//           return res.status(400).json({ error: "User ID is required" });
+//         }
+
+//         const updatedUser = await User.findByIdAndUpdate(
+//           userId,
+//           { name, email, profilePic },
+//           { new: true }
+//         );
+
+//         if (!updatedUser) {
+//           return res.status(404).json({ error: "User not found" });
+//         }
+
+//         res.status(200).json(updatedUser);
+//       } catch (error: any) {
+//         res.status(500).json({ error: error.message });
+//       }
+//       break;
+
+//     default:
+//       res.setHeader("Allow", ["GET", "PUT"]);
+//       res.status(405).end(`Method ${method} Not Allowed`);
+//   }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import dbConnect from "@/dbConfig/dbConfig";
 import User from "@/models/userModel";
 import { NextRequest, NextResponse } from "next/server";
