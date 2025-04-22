@@ -35,7 +35,7 @@ export default function Home() {
       {/* Header */}
       <div className="w-full flex fixed top-0 justify-between px-5 pt-2 bg-black items-center z-50">
         <div className="top-4 left-6">
-          <Link href={'/'} className="text-white font-bold text-xl">DevKit</Link>
+          <Link href={'/'} className="text-white font-bold text-xl">Hyper Gen</Link>
         </div>
 
         <div className="top-4 right-4 flex items-center space-x-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FileExplorer } from '../../components/FileExplorer';
 import { CodeEditor } from '../../components/CodeEditor';
 import { Step, FileItem, StepType } from '../types';
@@ -34,6 +34,10 @@ export default function Builder() {
 
   const [steps, setSteps] = useState<Step[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const [previewReady, setPreviewReady] = useState(false);
+
+  // const mountedRef = useRef(false);
 
   const handleSend = async () => {
     if (!userPrompt.trim()) return;
@@ -191,6 +195,12 @@ export default function Builder() {
       return mountStructure;
     };
 
+    // if (!webcontainer || mountedRef.current) return;
+
+    // const mountStructure = createMountStructure(files);
+    // webcontainer.mount(mountStructure);
+    // mountedRef.current = true;
+
     const mountStructure = createMountStructure(files);
     webcontainer?.mount(mountStructure);
   }, [files, webcontainer]);
@@ -228,7 +238,7 @@ export default function Builder() {
     <div className="min-h-screen bg-black flex flex-col">
       <div className="w-full bg-black border-b border-[#2c2c3a] px-6 py-3 flex justify-between items-center">
         <Link href="/" className="text-white font-bold text-2xl tracking-tight">
-          DevKit
+          Hyper Gen
         </Link>
 
         <button
@@ -265,9 +275,9 @@ export default function Builder() {
                     />
                     <Button onClick={handleSend}>Send</Button>
                   </div>
-                  <Button variant="outline" className="w-full" onClick={handleRegenerate}>
+                  {/* <Button variant="outline" className="w-full" onClick={handleRegenerate}>
                     🔁 Regenerate from Scratch
-                  </Button>
+                  </Button> */}
                 </>
               )}
             </div>
@@ -295,7 +305,33 @@ export default function Builder() {
           <div className="col-span-2 rounded-xl p-4 h-[calc(100vh-8rem)] border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col">
             <TabView activeTab={activeTab} onTabChange={setActiveTab} />
             <div className="flex-1 mt-2 bg-black rounded-lg overflow-auto p-3 border border-[#2a2a3d]">
-              {activeTab === 'code' ? <CodeEditor file={selectedFile} /> : <PreviewFrame webContainer={webcontainer} files={files} />}
+              {/* {activeTab === 'code' ? <CodeEditor file={selectedFile} /> : <PreviewFrame webContainer={webcontainer} files={files} />} */}
+              {activeTab === 'code' ? (
+                <CodeEditor file={selectedFile} />
+              ) : (
+                <>
+                  {!previewReady && (
+                    <div className="mb-2 text-sm text-white">
+                      Installing dependencies... {previewProgress}%
+                      <div className="w-full h-2 bg-gray-700 rounded mt-1">
+                        <div
+                          className="h-2 bg-green-500 rounded"
+                          style={{ width: `${previewProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <PreviewFrame
+                    webContainer={webcontainer}
+                    files={files}
+                    onProgressUpdate={setPreviewProgress}
+                    onReady={() => {
+                      setPreviewProgress(100);
+                      setPreviewReady(true);
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -303,6 +339,19 @@ export default function Builder() {
     </div>
   );
 }
+
+// {!previewReady && (
+//   <div className="fixed inset-0 bg-black flex flex-col justify-center items-center z-50">
+//     <p className="text-white text-lg mb-4">Installing Dependencies...</p>
+//     <div className="w-2/3 bg-gray-800 rounded-full h-3 overflow-hidden">
+//       <div
+//         className="bg-blue-500 h-full transition-all duration-200"
+//         style={{ width: `${previewProgress}%` }}
+//       />
+//     </div>
+//     <p className="text-white mt-2 text-sm">{previewProgress}%</p>
+//   </div>
+// )}
 
 
 
