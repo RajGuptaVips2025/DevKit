@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     console.log("messages --->  ",messages,'\n\n')
 
       const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-thinking-exp-01-21" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
   
       const result = await model.generateContent(messages);
         console.log("response --->  ",result.response.text(),'\n\n')

@@ -14,58 +14,6 @@ export const basePrompt = `<boltArtifact id=\"project-import\" title=\"Project F
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // export const basePrompt = `<boltArtifact id="project-import" title="Project Files">
 //   <boltAction type="file" filePath="eslint.config.js">import js from '@eslint/js';
 // import globals from 'globals';
@@ -518,3 +466,55 @@ export const basePrompt = `<boltArtifact id=\"project-import\" title=\"Project F
 // .env.production.local
 // </boltAction>
 // </boltArtifact>`;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
