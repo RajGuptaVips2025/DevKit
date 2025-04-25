@@ -1,12 +1,36 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FileItem } from '../app/types';
-import { Editor } from '@monaco-editor/react';
+import { Editor, OnMount } from '@monaco-editor/react';
 
 interface CodeEditorProps {
   file: FileItem | null;
+  onFileChange?: (updated: FileItem) => void;
 }
 
-export function CodeEditor({ file }: CodeEditorProps) {
+export function CodeEditor({ file, onFileChange  }: CodeEditorProps) {
+
+  const [content, setContent] = useState<string>(file?.content || '');
+  const editorRef = useRef<any>(null);
+
+  // Sync state when a new file is selected
+  useEffect(() => {
+    setContent(file?.content || '');
+  }, [file]);
+
+  // Capture the Monaco editor instance
+  const handleEditorDidMount: OnMount = (editor) => {
+    editorRef.current = editor;
+  };
+
+  // Track changes, update local state, and notify parent
+  const handleChange = (value: string | undefined) => {
+    if (value === undefined) return;
+    setContent(value);
+    if (file && onFileChange) {
+      onFileChange({ ...file, content: value });
+    }
+  };
+
   if (!file) {
     return (
       <div className="h-full flex items-center justify-center text-gray-400 bg-black">
@@ -16,11 +40,14 @@ export function CodeEditor({ file }: CodeEditorProps) {
   }
 
   return (
+    
     <Editor
-      height="100%"
-      defaultLanguage="typescript"
+    height="100%"
+      defaultLanguage={file.name.endsWith('.ts') || file.name.endsWith('.tsx') ? 'typescript' : 'plaintext'}
       theme="vs-dark"
-      value={file.content || ''}
+      value={content}
+      onMount={handleEditorDidMount}
+      onChange={handleChange}
       options={{
         minimap: { enabled: false },
         fontSize: 14,
@@ -30,3 +57,15 @@ export function CodeEditor({ file }: CodeEditorProps) {
     />
   );
 }
+// <Editor
+//   height="100%"
+//   defaultLanguage="typescript"
+//   theme="vs-dark"
+//   value={file.content || ''}
+//   options={{
+//     minimap: { enabled: false },
+//     fontSize: 14,
+//     wordWrap: 'on',
+//     scrollBeyondLastLine: false,
+//   }}
+// />

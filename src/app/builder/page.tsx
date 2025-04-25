@@ -6,7 +6,7 @@ import { CodeEditor } from '../../components/CodeEditor';
 import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +27,7 @@ export default function Builder() {
   const [loading, setLoading] = useState(false);
   const [templateSet, setTemplateSet] = useState(false);
   const webcontainer = useWebContainer();
-
+  const route = useRouter()
   const [currentStep, setCurrentStep] = useState(1);
   const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
@@ -214,6 +214,26 @@ export default function Builder() {
     init();
   };
 
+  // 1) A recursive updater that returns a new file tree
+  function updateFileContent(
+    items: FileItem[],
+    updated: FileItem
+  ): FileItem[] {
+    return items.map(item => {
+      if (item.type === 'file' && item.path === updated.path) {
+        // Replace the file node
+        return { ...item, content: updated.content };
+      } else if (item.type === 'folder' && item.children) {
+        // Recurse into folders
+        return {
+          ...item,
+          children: updateFileContent(item.children, updated),
+        };
+      }
+      return item;
+    });
+  }
+
   const handleExportZip = async () => {
     const zip = new JSZip();
   
@@ -295,7 +315,16 @@ export default function Builder() {
             <TabView activeTab={activeTab} onTabChange={setActiveTab} />
             <div className="flex-1 mt-2 bg-black rounded-lg overflow-auto p-3 border border-[#2a2a3d]">
               {activeTab === 'code' ? (
-                <CodeEditor file={selectedFile} />
+                <CodeEditor
+                file={selectedFile}
+                onFileChange={(updatedFile) => {
+                  // 2) Use the recursive helper to produce a new `files` array
+                  setFiles(oldFiles => updateFileContent(oldFiles, updatedFile));
+
+                  // 3) Make sure `selectedFile` also updates so the editor stays in sync
+                  setSelectedFile(updatedFile);
+                }}
+                 />
               ) : (
                 <>
                   {!previewReady && (
