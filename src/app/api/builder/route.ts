@@ -11,7 +11,7 @@ export async function POST(request:NextRequest) {
     const reqBody = await request.json();
     const { params } = reqBody;
 
-    console.log(params, reqBody);
+    console.log(params);
     // Validate input
     // return response;
   } catch (error:any) {

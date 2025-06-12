@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Await the result.text() method to get the actual answer
     const answer = result.response.text().trim(); // react or node
 
-    if (answer.toLowerCase() === "react") {
+    if (answer.toLowerCase().includes("react")) {
       return NextResponse.json({
         prompts: [BASE_PROMPT,
           `Here is an artifact that contains all files of the project visible to you.\nConsider the contents of ALL files in the project.\n\n${reactBasePrompt}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`,
