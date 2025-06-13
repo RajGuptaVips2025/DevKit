@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'react-toastify';
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,10 +23,15 @@ export default function Login() {
     try {
       const response = await axios.post("/api/user/login", formData);
       console.log("Login successful:", response.data);
+      toast.success("Logged in successfully!");
       route.push("/");
     } catch (err: any) {
-      console.error("Login error:", err.response?.data || err.message);
-      setError(err.response?.data?.message || "Something went wrong. Please try again.");
+      // console.error("Login error:", err.response?.data || err.message);
+      // setError(err.response?.data?.message || "Something went wrong. Please try again.");
+      const errorMsg = err.response?.data?.message || "Something went wrong. Please try again.";
+      console.error("Login error:", errorMsg);
+      setError(errorMsg);
+      toast.error("Login failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
