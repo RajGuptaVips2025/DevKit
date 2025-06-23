@@ -5,7 +5,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req;
-  console.log("kjbkb   ",method)
+  console.log(method)
 
   await dbConnect();
 

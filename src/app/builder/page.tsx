@@ -165,47 +165,6 @@ export default function Builder() {
     }
   }, [steps]);
 
-  // useEffect(() => {
-  //   const createMountStructure = (files: FileItem[]): Record<string, any> => {
-  //     const mountStructure: Record<string, any> = {};
-  //     const processFile = (file: FileItem, isRootFolder: boolean): any => {
-  //       if (file.type === 'folder') {
-  //         mountStructure[file.name] = {
-  //           directory: file.children
-  //             ? Object.fromEntries(file.children.map((child) => [child.name, processFile(child, false)]))
-  //             : {},
-  //         };
-  //       } else if (file.type === 'file') {
-  //         if (isRootFolder) {
-  //           mountStructure[file.name] = {
-  //             file: {
-  //               contents: file.content || '',
-  //             },
-  //           };
-  //         } else {
-  //           return {
-  //             file: {
-  //               contents: file.content || '',
-  //             },
-  //           };
-  //         }
-  //       }
-  //       return mountStructure[file.name];
-  //     };
-  //     files.forEach((file) => processFile(file, true));
-  //     return mountStructure;
-  //   };
-
-  //   // if (!webcontainer || mountedRef.current) return;
-
-  //   // const mountStructure = createMountStructure(files);
-  //   // webcontainer.mount(mountStructure);
-  //   // mountedRef.current = true;
-
-  //   const mountStructure = createMountStructure(files);
-  //   webcontainer?.mount(mountStructure);
-  // }, [files, webcontainer]);
-
   useEffect(() => {
     const createMountStructure = (files: FileItem[]): Record<string, any> => {
       const mountStructure: Record<string, any> = {};
