@@ -57,15 +57,3 @@ export function CodeEditor({ file, onFileChange  }: CodeEditorProps) {
     />
   );
 }
-// <Editor
-//   height="100%"
-//   defaultLanguage="typescript"
-//   theme="vs-dark"
-//   value={file.content || ''}
-//   options={{
-//     minimap: { enabled: false },
-//     fontSize: 14,
-//     wordWrap: 'on',
-//     scrollBeyondLastLine: false,
-//   }}
-// />

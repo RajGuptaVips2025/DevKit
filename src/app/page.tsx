@@ -1,34 +1,57 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Aperture, ArrowRight, Link as Laaa } from "lucide-react"
-import { FaDiscord, FaLinkedin, FaFigma } from "react-icons/fa"
-import { FaXTwitter } from "react-icons/fa6"
+import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Aperture, ArrowRight, Link as Laaa } from "lucide-react";
+import { FaFigma } from "react-icons/fa";
 
 interface Document {
-  _id: string
-  title: string
-  content: string
+  _id: string;
+  title: string;
+  content: string;
 }
 
 export default function Home() {
-  const [prompt, setPrompt] = useState("")
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const router = useRouter()
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  const [prompt, setPrompt] = useState("");
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (session === null) {
+      router.replace("/login");
+    }
+  }, [session, router]);
+
+  if (session === undefined) {
+    return <p className="text-white text-center mt-10">Loading...</p>;
+  }
+
+  if (session === null) {
+    return null;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (prompt.trim()) {
-      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`)
+      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
     }
-  }
+  };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setPrompt(suggestion)
-  }
+    setPrompt(suggestion);
+  };
+
+  const handleLogout = () => {
+    signOut({ callbackUrl: `${window.location.origin}/login`, redirect: false });
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 300);
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
@@ -39,7 +62,6 @@ export default function Home() {
         </div>
 
         <div className="top-4 right-4 flex items-center space-x-2">
-          {/* Hamburger always visible (desktop too) */}
           <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
               viewBox="0 0 24 24" stroke="currentColor">
@@ -150,8 +172,30 @@ export default function Home() {
           <Link href="https://discord.com/" target="_blank" className="flex items-center space-x-2 hover:text-zinc-300">
             <span>Discord</span>
           </Link>
+
+          <button
+            onClick={handleLogout}
+            className="mt-6 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm transition"
+          >
+            Logout
+          </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
