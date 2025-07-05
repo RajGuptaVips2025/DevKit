@@ -12,10 +12,9 @@ export function CodeEditor({ file, onFileChange  }: CodeEditorProps) {
   const [content, setContent] = useState<string>(file?.content || '');
   const editorRef = useRef<any>(null);
 
-  // Sync state when a new file is selected
   useEffect(() => {
-    setContent(file?.content || '');
-  }, [file]);
+    if (file) setContent(file.content || '');
+  }, [file?.path]); // ✅ Only update if a different file is selected
 
   // Capture the Monaco editor instance
   const handleEditorDidMount: OnMount = (editor) => {
