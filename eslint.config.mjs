@@ -23,27 +23,27 @@
 
 // export default eslintConfig;
 
+/* eslint-disable import/no-anonymous-default-export */
+
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
 
-// Get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const compat = new FlatCompat({ baseDirectory: __dirname });
 
-// Flatten the extended configs into an array
 const extendedConfigs = compat.extends("next/core-web-vitals", "next/typescript");
 
-// Export an array of configs, combining extended and custom
-export default [
+const config = [
   ...extendedConfigs,
   {
     rules: {
       "@typescript-eslint/no-require-imports": "off",
-      "@typescript-eslint/no-explicit-any": "off",  // <--- added this line
-      // add any other custom rules here
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ];
+
+export default config;
