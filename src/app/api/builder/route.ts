@@ -12,8 +12,6 @@ export async function POST(request:NextRequest) {
     const { params } = reqBody;
 
     console.log(params);
-    // Validate input
-    // return response;
   } catch (error:any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

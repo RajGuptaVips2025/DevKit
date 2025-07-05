@@ -231,48 +231,12 @@ export default function Builder() {
     }
   }, [steps]);
 
-  // useEffect(() => {
-  //   const createMountStructure = (files: FileItem[]): Record<string, any> => {
-  //     const mountStructure: Record<string, any> = {};
-  //     const processFile = (file: FileItem, isRootFolder: boolean): any => {
-  //       if (file.type === 'folder') {
-  //         mountStructure[file.name] = {
-  //           directory: file.children
-  //             ? Object.fromEntries(file.children.map((child) => [child.name, processFile(child, false)]))
-  //             : {},
-  //         };
-  //       } else if (file.type === 'file') {
-  //         if (isRootFolder) {
-  //           mountStructure[file.name] = {
-  //             file: {
-  //               contents: file.content || '',
-  //             },
-  //           };
-  //         } else {
-  //           return {
-  //             file: {
-  //               contents: file.content || '',
-  //             },
-  //           };
-  //         }
-  //       }
-  //       return mountStructure[file.name];
-  //     };
-  //     files.forEach((file) => processFile(file, true));
-  //     return mountStructure;
-  //   };
 
-  //   // if (!webcontainer || mountedRef.current) return;
+  
 
-  //   // const mountStructure = createMountStructure(files);
-  //   // webcontainer.mount(mountStructure);
-  //   // mountedRef.current = true;
 
-  //   const mountStructure = createMountStructure(files);
-  //   webcontainer?.mount(mountStructure);
-  // }, [files, webcontainer]);
-
-  useEffect(() => {
+  useEffect(() => { // Mount files into WebContainer
+    // Recursively converts your internal file tree to a webcontainer.mount() compatible structure.
     const createMountStructure = (files: FileItem[]): Record<string, any> => {
       const mountStructure: Record<string, any> = {};
       const processFile = (file: FileItem, isRootFolder: boolean): any => {
@@ -309,6 +273,8 @@ export default function Builder() {
     webcontainer?.mount(mountStructure);
   }, [files, webcontainer]);
 
+
+  
   // 1) A recursive updater that returns a new file tree
   // Recursively updates one file’s content in the file tree based on its path.
   function updateFileContent(
