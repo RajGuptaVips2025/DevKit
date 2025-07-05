@@ -8,7 +8,7 @@ interface PreviewFrameProps {
   onReady: () => void;
 }
 
-export function PreviewFrame({ files, webContainer, onProgressUpdate, onReady }: PreviewFrameProps) {
+export function PreviewFrame({webContainer, onProgressUpdate, onReady }: PreviewFrameProps) {
 
   const [url, setUrl] = useState("");
 

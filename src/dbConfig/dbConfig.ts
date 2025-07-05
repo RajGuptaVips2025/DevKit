@@ -9,8 +9,12 @@ const dbConnect = async () => {
   }
 
   try {
-    const db = await mongoose.connect(process.env.MONGO_URI!, {
+    // Make sure to call mongoose.connect() here
+    await mongoose.connect(process.env.MONGO_URI!, {
       dbName: "MajorProject", // Optional: specify your DB name here
+      // Other options to avoid deprecation warnings can be added
+      // useNewUrlParser: true,
+      // useUnifiedTopology: true,
     });
 
     mongoose.connection.setMaxListeners(20); // Optional: avoid listener warnings
@@ -32,3 +36,54 @@ const dbConnect = async () => {
 };
 
 export default dbConnect;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import mongoose from "mongoose";
+
+// let isConnected = false; // Flag to track connection status
+
+// const dbConnect = async () => {
+//   if (isConnected) {
+//     console.log("✅ Already connected to MongoDB");
+//     return;
+//   }
+
+//   try {
+//     // const db = await mongoose.connect(process.env.MONGO_URI!, {
+//     //   dbName: "MajorProject", // Optional: specify your DB name here
+//     // });
+
+//     mongoose.connection.setMaxListeners(20); // Optional: avoid listener warnings
+
+//     mongoose.connection.on("connected", () => {
+//       console.log("✅ Mongoose connected successfully");
+//     });
+
+//     mongoose.connection.on("error", (err) => {
+//       console.error("❌ Mongoose connection error:", err);
+//     });
+
+//     isConnected = true;
+//     console.log("✅ MongoDB connection established");
+//   } catch (err: any) {
+//     console.error("❌ MongoDB connection failed:", err.message);
+//     process.exit(1);
+//   }
+// };
+
+// export default dbConnect;

@@ -6,9 +6,8 @@ import { CodeEditor } from '../../components/CodeEditor';
 import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { StepsList } from '@/components/StepsList';
@@ -21,68 +20,42 @@ import { saveAs } from 'file-saver';
 
 export default function Builder() {
   const hydratedRef = useRef(false);
-  const filesInitializedRef = useRef(false);
   // hydratedRef: Ensures we don't re-initialize the app multiple times (used in useEffect).
   // filesInitializedRef: Unused here but seems intended to track if file system has been mounted.
   const searchParams = useSearchParams();
   const prompt = searchParams.get('prompt');
-  if (!prompt) {
-  return (
-      <div className="text-white text-center p-4">
-        No prompt provided in URL. Please use <code>?prompt=your_text</code> in the address bar.
-      </div>
-    );
-  }
-
-  // Fetches the prompt from the URL query string (like ?prompt=build app).
-  const route = useRouter();
-  // Next.js router for navigation (though not used here yet).
+  
   const [userPrompt, setPrompt] = useState('');
   const [llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [templateSet, setTemplateSet] = useState(false);
-  // userPrompt: For the prompt input box.
-  // llmMessages: Chat history between user & assistant.
-  // loading: Shows spinner during async calls.
-  // templateSet: Ensures prompt has been initialized.
-
   const webcontainer = useWebContainer();
-  // Custom hook that returns a WebContainer (virtual Linux filesystem + browser environment).
-
   const [currentStep, setCurrentStep] = useState(1);
   const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
-  // currentStep, activeTab: Used for UI interaction (tab view, step counter).
-  // selectedFile: File opened in the code editor.
-  // steps: Instructions to build files.
-  // files: Virtual file tree generated based on steps.
-  
   const [previewProgress, setPreviewProgress] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
-  // For handling live preview build progress (probably used with webcontainer).
-
   const [editedPaths, setEditedPaths] = useState<Set<string>>(new Set());
-  // saved the edited paths.
-
-
+  
+  
   
   const handleSend = async () => {
     if (!userPrompt.trim()) return;
     // Prevents empty prompt submission.
-
+    
     const newMessage = { role: 'user' as const, content: userPrompt };
     setLoading(true);
     setPrompt('');
     // Adds user's prompt to the chat, sets loading, and clears input field.
-
+    
     const stepsResponse = await axios.post(`/api/chat`, {
       messages: [...llmMessages, newMessage],
     });
     // Calls backend to get assistant's response for the full chat history.
     setLoading(false);
-
+    
     const parsedSteps = parseXml(stepsResponse.data.response).map((x) => ({
       ...x,
       status: 'pending' as const,
@@ -99,19 +72,19 @@ export default function Builder() {
     const response = await axios.post(`/api/template`, { prompt: prompt?.trim() });
     setTemplateSet(true);
     // Gets pre-prompt templates to pre-fill the chat.
-
+    
     const { prompts, uiPrompts } = response.data;
     const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({ ...x, status: 'pending' as const }));
     setSteps(parsedInitialSteps);
     // Parses initial UI prompt into structured steps.
-
+    
     setLoading(true);
     const stepsResponse = await axios.post(`/api/chat`, {
       messages: [...prompts, prompt].map((p) => ({ role: 'user', parts: p })),
     });
     setLoading(false);
     // Sends full prompt + initial user instructions.
-
+    
     const finalSteps = [
       ...parsedInitialSteps,
       ...parseXml(stepsResponse.data.response).map((x) => ({ ...x, status: 'pending' as const })),
@@ -119,39 +92,39 @@ export default function Builder() {
     setSteps(finalSteps);
     // Combines UI and assistant-generated steps.
     
-
+    
     setLlmMessages([
       ...prompts.map((p: string) => ({ role: 'user', content: p })),
       { role: 'user', content: prompt! },
       { role: 'assistant', content: stepsResponse.data.response },
     ]); // Saves conversation
-
+    
     localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps)); // Stores steps
     // localStorage.setItem(`ai-files-${prompt}`, JSON.stringify([])); // will update when files are built
   };
-
+  
   useEffect(() => {
-  if (hydratedRef.current) return;
-  hydratedRef.current = true; // ✅ Move this to top
-
-  const cachedSteps = localStorage.getItem(`ai-steps-${prompt}`);
-  const cachedFiles = localStorage.getItem(`ai-files-${prompt}`);
-  const selectedPath = localStorage.getItem(`ai-selected-${prompt}`);
-  const isGenerated = localStorage.getItem(`ai-generated-${prompt}`) === 'true';
-  const cachedEditedPaths = localStorage.getItem(`ai-edited-${prompt}`);
-
-  if (cachedEditedPaths) {
-    setEditedPaths(new Set(JSON.parse(cachedEditedPaths)));
-  }
-
-  if (cachedSteps && cachedFiles && isGenerated) {
-    setSteps(JSON.parse(cachedSteps));
-    const parsedFiles = JSON.parse(cachedFiles);
-    setFiles(parsedFiles);
-    setTemplateSet(true);
-
-    if (selectedPath) {
-      const findFile = (items: FileItem[]): FileItem | null => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true; // ✅ Move this to top
+    
+    const cachedSteps = localStorage.getItem(`ai-steps-${prompt}`);
+    const cachedFiles = localStorage.getItem(`ai-files-${prompt}`);
+    const selectedPath = localStorage.getItem(`ai-selected-${prompt}`);
+    const isGenerated = localStorage.getItem(`ai-generated-${prompt}`) === 'true';
+    const cachedEditedPaths = localStorage.getItem(`ai-edited-${prompt}`);
+    
+    if (cachedEditedPaths) {
+      setEditedPaths(new Set(JSON.parse(cachedEditedPaths)));
+    }
+    
+    if (cachedSteps && cachedFiles && isGenerated) {
+      setSteps(JSON.parse(cachedSteps));
+      const parsedFiles = JSON.parse(cachedFiles);
+      setFiles(parsedFiles);
+      setTemplateSet(true);
+      
+      if (selectedPath) {
+        const findFile = (items: FileItem[]): FileItem | null => {
         for (const item of items) {
           if (item.path === selectedPath) return item;
           if (item.type === 'folder' && item.children) {
@@ -163,34 +136,34 @@ export default function Builder() {
       };
       const selected = findFile(parsedFiles);
       if (selected) setSelectedFile(selected);
-      }
-    } else {
-      init();
     }
-  }, [prompt]);
+  } else {
+    init();
+  }
+}, [prompt]);
 
-  useEffect(() => {
+useEffect(() => {
   const pendingSteps = steps.filter(({ status }) => status === 'pending');
   if (pendingSteps.length === 0) return;
-
+  
   let originalFiles = [...files];
   let updateHappened = false;
-
+  
   pendingSteps.forEach((step) => {
     updateHappened = true;
     if (step?.type === StepType.CreateFile) {
       let parsedPath = step.path?.split('/') ?? [];
       let currentFileStructure = [...originalFiles];
-      let finalAnswerRef = currentFileStructure;
+      const finalAnswerRef = currentFileStructure;
       let currentFolder = '';
-
+      
       while (parsedPath.length) {
         currentFolder = `${currentFolder}/${parsedPath[0]}`;
-        let currentFolderName = parsedPath[0];
+        const currentFolderName = parsedPath[0];
         parsedPath = parsedPath.slice(1);
-
+        
         if (!parsedPath.length) {
-          let file = currentFileStructure.find((x) => x.path === currentFolder);
+          const file = currentFileStructure.find((x) => x.path === currentFolder);
           if (!file) {
             currentFileStructure.push({
               name: currentFolderName,
@@ -206,7 +179,7 @@ export default function Builder() {
           }
         }
         else {
-          let folder = currentFileStructure.find((x) => x.path === currentFolder);
+          const folder = currentFileStructure.find((x) => x.path === currentFolder);
           if (!folder) {
             currentFileStructure.push({
               name: currentFolderName,
@@ -215,98 +188,95 @@ export default function Builder() {
               children: [],
             });
           }
-
+          
           currentFileStructure = currentFileStructure.find((x) => x.path === currentFolder)!.children!;
         }
       }
-
+      
       originalFiles = finalAnswerRef;
     }
   });
-
-    if (updateHappened) {
-      setFiles(originalFiles);
-      setSteps((steps) =>
-        steps.map((s) => ({
-          ...s,
-          status: 'completed',
-        }))
-      );
-
-      // Store the generated result
-      localStorage.setItem(`ai-files-${prompt}`, JSON.stringify(originalFiles));
-      localStorage.setItem(`ai-generated-${prompt}`, 'true'); // ✅ Only set this now
-    }
-  }, [steps]);
-
-
   
-
-
-  useEffect(() => { // Mount files into WebContainer
-    // Recursively converts your internal file tree to a webcontainer.mount() compatible structure.
-    const createMountStructure = (files: FileItem[]): Record<string, any> => {
-      const mountStructure: Record<string, any> = {};
-      const processFile = (file: FileItem, isRootFolder: boolean): any => {
-        if (file.type === 'folder') {
-          mountStructure[file.name] = {
-            directory: file.children
-              ? Object.fromEntries(file.children.map((child) => [child.name, processFile(child, false)]))
-              : {},
-          };
-        } else if (file.type === 'file') {
-          if (isRootFolder) {
-            mountStructure[file.name] = {
-              file: {
-                contents: file.content || '',
-              },
-            };
-          } else {
-            return {
-              file: {
-                contents: file.content || '',
-              },
-            };
-          }
-        }
-        return mountStructure[file.name];
-      };
-
-      files.forEach((file) => processFile(file, true));
-      return mountStructure;
-    };
-
-    // Mounts the files inside a virtual environment that supports previewing/running code.
-    const mountStructure = createMountStructure(files);
-    webcontainer?.mount(mountStructure);
-  }, [files, webcontainer]);
-
-
-  
-  // 1) A recursive updater that returns a new file tree
-  // Recursively updates one file’s content in the file tree based on its path.
-  function updateFileContent(
-    items: FileItem[],
-    updated: FileItem
-  ): FileItem[] {
-    return items.map(item => {
-      if (item.type === 'file' && item.path === updated.path) {
-        // Replace the file node
-        return { ...item, content: updated.content };
-      } else if (item.type === 'folder' && item.children) {
-        // Recurse into folders
-        return {
-          ...item,
-          children: updateFileContent(item.children, updated),
-        };
-      }
-      return item;
-    });
+  if (updateHappened) {
+    setFiles(originalFiles);
+    setSteps((steps) =>
+      steps.map((s) => ({
+        ...s,
+        status: 'completed',
+      }))
+    );
+    
+    // Store the generated result
+    localStorage.setItem(`ai-files-${prompt}`, JSON.stringify(originalFiles));
+    localStorage.setItem(`ai-generated-${prompt}`, 'true'); // ✅ Only set this now
   }
+}, [steps]);
+
+
+useEffect(() => { // Mount files into WebContainer
+  // Recursively converts your internal file tree to a webcontainer.mount() compatible structure.
+  const createMountStructure = (files: FileItem[]): Record<string, any> => {
+    const mountStructure: Record<string, any> = {};
+    const processFile = (file: FileItem, isRootFolder: boolean): any => {
+      if (file.type === 'folder') {
+        mountStructure[file.name] = {
+          directory: file.children
+          ? Object.fromEntries(file.children.map((child) => [child.name, processFile(child, false)]))
+          : {},
+        };
+      } else if (file.type === 'file') {
+        if (isRootFolder) {
+          mountStructure[file.name] = {
+            file: {
+              contents: file.content || '',
+            },
+          };
+        } else {
+          return {
+            file: {
+              contents: file.content || '',
+            },
+          };
+        }
+      }
+      return mountStructure[file.name];
+    };
+    
+    files.forEach((file) => processFile(file, true));
+    return mountStructure;
+  };
   
+  // Mounts the files inside a virtual environment that supports previewing/running code.
+  const mountStructure = createMountStructure(files);
+  webcontainer?.mount(mountStructure);
+}, [files, webcontainer]);
+
+
+
+// 1) A recursive updater that returns a new file tree
+// Recursively updates one file’s content in the file tree based on its path.
+function updateFileContent(
+  items: FileItem[],
+  updated: FileItem
+): FileItem[] {
+  return items.map(item => {
+    if (item.type === 'file' && item.path === updated.path) {
+      // Replace the file node
+      return { ...item, content: updated.content };
+    } else if (item.type === 'folder' && item.children) {
+      // Recurse into folders
+      return {
+        ...item,
+        children: updateFileContent(item.children, updated),
+      };
+    }
+    return item;
+  });
+}
+
   const handleExportZip = async () => {
     const zip = new JSZip();
-  
+    
     const addFilesToZip = (zipFolder: JSZip, items: FileItem[]) => {
       items.forEach((item) => {
         if (item.type === 'folder' && item.children) {
@@ -324,15 +294,13 @@ export default function Builder() {
     saveAs(content, `${prompt || 'project'}-export.zip`);
   };
 
-    
-  const handleRegenerate = () => {
-    localStorage.removeItem(`ai-files-${prompt}`);
-    localStorage.removeItem(`ai-steps-${prompt}`);
-    setSteps([]);
-    setFiles([]);
-    setTemplateSet(false);
-    init();
-  };
+  if (!prompt) {
+  return (
+      <div className="text-white text-center p-4">
+        No prompt provided in URL. Please use <code>?prompt=your_text</code> in the address bar.
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
