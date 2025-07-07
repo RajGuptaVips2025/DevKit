@@ -1,5 +1,6 @@
 import React from 'react';
 import { Code2, Eye } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface TabViewProps {
   activeTab: 'code' | 'preview';
@@ -7,10 +8,17 @@ interface TabViewProps {
 }
 
 export function TabView({ activeTab, onTabChange }: TabViewProps) {
+
+  const handleTabClick = (tab: 'code' | 'preview') => {
+    if (tab === activeTab) return; // avoid toast if already active
+    onTabChange(tab);
+    toast.success(`Switched to ${tab} view`);
+  };
+
   return (
     <div className="flex space-x-2 mb-4 ">
       <button
-        onClick={() => onTabChange('code')}
+        onClick={() => handleTabClick('code')}
         className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
           activeTab === 'code'
             ? 'bg-gray-700 text-gray-100'
@@ -21,7 +29,7 @@ export function TabView({ activeTab, onTabChange }: TabViewProps) {
         Code
       </button>
       <button
-        onClick={() => onTabChange('preview')}
+        onClick={() => handleTabClick('preview')}
         className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
           activeTab === 'preview'
             ? 'bg-gray-700 text-gray-100'
@@ -34,3 +42,4 @@ export function TabView({ activeTab, onTabChange }: TabViewProps) {
     </div>
   );
 }
+

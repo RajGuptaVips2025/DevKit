@@ -7,18 +7,11 @@ import Link from "next/link";
 import { Aperture, ArrowRight, Link as Laaa } from "lucide-react";
 import { FaFigma } from "react-icons/fa";
 
-interface Document {
-  _id: string;
-  title: string;
-  content: string;
-}
-
 export default function Home() {
   const { data: session } = useSession();
   const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {

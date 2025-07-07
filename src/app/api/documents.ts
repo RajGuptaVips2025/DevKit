@@ -2,10 +2,9 @@ import dbConnect from '@/dbConfig/dbConfig';
 import Document from '@/models/Document';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req;
-  console.log(method)
+  console.log(method);
 
   await dbConnect();
 
@@ -13,21 +12,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'GET':
       try {
         const documents = await Document.find({});
-        res.status(200).json({ success: true, data: documents });
-      } catch (error) {
-        res.status(400).json({ success: false });
+        return res.status(200).json({ success: true, data: documents });
+      } catch (error: unknown) {
+        console.error('GET /api/document error:', error);
+        return res.status(400).json({ success: false, error: 'Failed to fetch documents' });
       }
-      break;
+
     case 'POST':
       try {
         const document = await Document.create(req.body);
-        res.status(201).json({ success: true, data: document });
-      } catch (error) {
-        res.status(400).json({ success: false });
+        return res.status(201).json({ success: true, data: document });
+      } catch (error: unknown) {
+        console.error('POST /api/document error:', error);
+        return res.status(400).json({ success: false, error: 'Failed to create document' });
       }
-      break;
+
     default:
       res.setHeader('Allow', ['GET', 'POST']);
-      res.status(405).end(`Method ${method} Not Allowed`);
+      return res.status(405).end(`Method ${method} Not Allowed`);
   }
 }
+

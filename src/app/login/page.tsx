@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function LoginPage() {
-  const { data: session, status } = useSession();
+  const {status } = useSession();
   const router = useRouter();
   
 
