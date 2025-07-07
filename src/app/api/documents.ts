@@ -2,7 +2,6 @@ import dbConnect from '@/dbConfig/dbConfig';
 import Document from '@/models/Document';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// eslint-disable-next-line import/no-anonymous-default-export
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req;
   console.log(method);
