@@ -1,5 +1,6 @@
 import { WebContainer } from '@webcontainer/api';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface PreviewFrameProps {
   files: any[];
@@ -8,9 +9,9 @@ interface PreviewFrameProps {
   onReady: () => void;
 }
 
-export function PreviewFrame({webContainer, onProgressUpdate, onReady }: PreviewFrameProps) {
-
+export function PreviewFrame({ webContainer, onProgressUpdate, onReady }: PreviewFrameProps) {
   const [url, setUrl] = useState("");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   async function main() {
     if (!webContainer) {
@@ -44,16 +45,29 @@ export function PreviewFrame({webContainer, onProgressUpdate, onReady }: Preview
     });
   }  
 
+
   useEffect(() => {
     main();
   }, []);
 
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'runtime-error') {
+        toast.error(`Runtime Error: ${event.data.message}`);
+      }
+      if (event.data?.type === 'unhandled-rejection') {
+        toast.error(`Unhandled Rejection: ${event.data.message}`);
+      }
+    };
+
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
   return (
     <div className="h-full flex items-center justify-center text-gray-400">
-      {!url && <div className="text-center">
-        <p className="mb-2">Loading...</p>
-      </div>}
-      {url && <iframe width={"100%"} height={"100%"} src={url} />}
+      {!url && <div className="text-center"><p className="mb-2">Loading...</p></div>}
+      {url && <iframe ref={iframeRef} src={url} width="100%" height="100%" />}
     </div>
-  )
+  );
 }

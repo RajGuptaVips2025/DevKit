@@ -17,6 +17,7 @@ import { PreviewFrame } from '@/components/PreviewFrame';
 import Link from 'next/link';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { injectRuntimeErrorHandler } from '../utils/injectRuntimeErrorHandler';
 
 export default function Builder() {
   const hydratedRef = useRef(false);
@@ -196,20 +197,21 @@ useEffect(() => {
       originalFiles = finalAnswerRef;
     }
   });
-  
+
   if (updateHappened) {
-    setFiles(originalFiles);
-    setSteps((steps) =>
-      steps.map((s) => ({
-        ...s,
-        status: 'completed',
-      }))
-    );
-    
-    // Store the generated result
-    localStorage.setItem(`ai-files-${prompt}`, JSON.stringify(originalFiles));
-    localStorage.setItem(`ai-generated-${prompt}`, 'true'); // ✅ Only set this now
-  }
+  const injectedFiles = injectRuntimeErrorHandler(originalFiles); // Inject script
+
+  setFiles(injectedFiles); // Use updated files
+  setSteps((steps) =>
+    steps.map((s) => ({
+      ...s,
+      status: 'completed',
+    }))
+  );
+
+  localStorage.setItem(`ai-files-${prompt}`, JSON.stringify(injectedFiles));
+  localStorage.setItem(`ai-generated-${prompt}`, 'true');
+}
 }, [steps]);
 
 
