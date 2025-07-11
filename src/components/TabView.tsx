@@ -8,11 +8,15 @@ interface TabViewProps {
 }
 
 export function TabView({ activeTab, onTabChange }: TabViewProps) {
-
   const handleTabClick = (tab: 'code' | 'preview') => {
-    if (tab === activeTab) return; // avoid toast if already active
+    if (tab === activeTab) return;
+
     onTabChange(tab);
-    toast.success(`Switched to ${tab} view`);
+
+    toast.success(`Switched to ${tab} view`, {
+      id: 'tab-switch-toast', // This ensures the toast is reused instead of stacking
+      duration: 1500, // Optional: keep it short
+    });
   };
 
   return (

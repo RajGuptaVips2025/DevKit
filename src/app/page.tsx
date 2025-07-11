@@ -13,12 +13,18 @@ export default function Home() {
 
   const [prompt, setPrompt] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
 
   useEffect(() => {
     if (session === null) {
       router.replace("/login");
     }
   }, [session, router]);
+  
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("prompt-history") || "[]");
+    setHistory(stored);
+  }, [isSidebarOpen]); // Re-fetch when sidebar opens
 
   if (session === undefined) {
     return <p className="text-white text-center mt-10">Loading...</p>;
@@ -31,13 +37,24 @@ export default function Home() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim()) {
+      // Save to history
+      const stored = JSON.parse(localStorage.getItem("prompt-history") || "[]");
+      const updated = [prompt, ...stored.filter((p: string) => p !== prompt)].slice(0, 10); // Remove duplicates, keep recent 10
+      localStorage.setItem("prompt-history", JSON.stringify(updated));
+
       router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    setPrompt(suggestion);
+  const handleSuggestionClick = (suggestion: string, shouldRedirect = false) => {
+    if (shouldRedirect) {
+      const encodedPrompt = encodeURIComponent(suggestion);
+      router.push(`/builder?prompt=${encodedPrompt}`);
+    } else {
+      setPrompt(suggestion);
+    }
   };
+
 
   const handleLogout = () => {
     signOut({ callbackUrl: `${window.location.origin}/login`, redirect: false });
@@ -45,6 +62,31 @@ export default function Home() {
       window.location.href = "/login";
     }, 300);
   };
+
+  const handleClearHistory = () => {
+    // Clear static prompt history
+    localStorage.removeItem("prompt-history");
+    setHistory([]);
+
+    // Dynamically clear all ai-* keys
+    Object.keys(localStorage).forEach((key) => {
+      if (
+        key.startsWith("ai-steps-") ||
+        key.startsWith("ai-files-") ||
+        key.startsWith("ai-selected-") ||
+        key.startsWith("ai-generated-") ||
+        key.startsWith("ai-edited-")
+      ) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    // Optional: feedback
+    console.log("All chat history and AI-related data removed.");
+  };
+
+
+
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
@@ -149,22 +191,38 @@ export default function Home() {
         }`}
       >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold">Connect with us</h2>
+          <h2 className="text-lg font-semibold">Chat History</h2>
           <button onClick={() => setIsSidebarOpen(false)} className="text-white text-2xl leading-none">
             &times;
           </button>
         </div>
 
         <div className="space-y-4">
-          <Link href="http://localhost:3000/whiteboard" target="_blank" className="flex items-center space-x-2 hover:text-zinc-300">
-            <span>WhiteBoard</span>
-          </Link>
-          <Link href="https://in.linkedin.com/" target="_blank" className="flex items-center space-x-2 hover:text-zinc-300">
-            <span>LinkedIn</span>
-          </Link>
-          <Link href="https://discord.com/" target="_blank" className="flex items-center space-x-2 hover:text-zinc-300">
-            <span>Discord</span>
-          </Link>
+
+        <div className="mt-6">
+          <div className=" rounded-lg shadow-md  max-h-48 overflow-y-auto  scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800 space-y-1">
+            {history.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  const encodedPrompt = encodeURIComponent(item);
+                  router.push(`/builder?prompt=${encodedPrompt}`);
+                }}
+                className="w-full text-left text-sm text-zinc-300 hover:text-white hover:bg-gray-800 rounded-md px-1 py-2 truncate transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                title={item}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          {/* 👇 Add this Clear History button */}
+          <button
+            onClick={handleClearHistory}
+            className="mt-4 w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded text-sm transition"
+          >
+            Clear History
+          </button>
 
           <button
             onClick={handleLogout}
@@ -172,6 +230,7 @@ export default function Home() {
           >
             Logout
           </button>
+        </div>
         </div>
       </div>
     </div>

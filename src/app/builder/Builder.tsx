@@ -40,8 +40,6 @@ export default function Builder() {
   const [previewReady, setPreviewReady] = useState(false);
   const [editedPaths, setEditedPaths] = useState<Set<string>>(new Set());
   
-  
-  
   const handleSend = async () => {
     if (!userPrompt.trim()) return;
     // Prevents empty prompt submission.

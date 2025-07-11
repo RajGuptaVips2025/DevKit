@@ -12,39 +12,58 @@ interface PreviewFrameProps {
 export function PreviewFrame({ webContainer, onProgressUpdate, onReady }: PreviewFrameProps) {
   const [url, setUrl] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const toastShownRef = useRef(false);
+  const installStartedRef = useRef(false);
 
   async function main() {
     if (!webContainer) {
       console.error("WebContainer is not defined");
       return;
     }
-  
+
     const installProcess = await webContainer.spawn('npm', ['install']);
-  
+
     let outputLength = 0;
-  
+
+    // ⏰ Set a timer to warn if no install output within 3 seconds
+    setTimeout(() => {
+      if (!installStartedRef.current && !toastShownRef.current) {
+        toast(
+          "⚠️ If dependencies haven't started installing, try refreshing the browser and running it again.",
+          {
+            icon: '⚠️',
+            style: {
+              background: '#facc15',
+              color: '#000',
+            },
+          }
+        );
+        toastShownRef.current = true;
+      }
+    }, 3000); // 3 seconds
+
     const writable = new WritableStream({
       write(chunk, data) {
         console.log(data);
+        installStartedRef.current = true; // ✅ Mark install output has started
+
         outputLength += chunk.length;
-        const progress = Math.min(100, Math.floor((outputLength / 10000) * 100)); // Arbitrary scaling
+        const progress = Math.min(100, Math.floor((outputLength / 10000) * 100));
         onProgressUpdate(progress);
       },
     });
-  
+
     installProcess.output.pipeTo(writable);
-  
     await installProcess.exit;
-  
+
     await webContainer.spawn('npm', ['run', 'dev']);
-  
+
     webContainer.on('server-ready', (port, url) => {
       console.log(port);
       setUrl(url);
       onReady();
     });
-  }  
-
+  }
 
   useEffect(() => {
     main();
