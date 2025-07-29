@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Clipboard, FileIcon, Link2, Plus } from "lucide-react";
 import { FaFigma } from "react-icons/fa";
 import {
   Select,
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useBuildStore } from "@/lib/store";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Ensure axios sends cookies with requests
 axios.defaults.withCredentials = true;
@@ -33,10 +35,11 @@ export default function Sidebar() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const limit = 10;
-  const [model, setModel] = useState("gemini-2.0-flash");
-  const [prompt, setPrompt] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const { prompt, setPrompt, model, setModel, imageFile, setImageFile } = useBuildStore();
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogout = async () => {
     await signOut({ redirect: false });
@@ -47,14 +50,12 @@ export default function Sidebar() {
     window.location.replace("/login");
   };
 
-  // Redirect unauthenticated users client-side
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
     }
   }, [status, router]);
 
-  // Fetch user history from API
   const fetchHistory = useCallback(async () => {
     if (!hasMore || loading || status !== "authenticated") return;
 
@@ -110,7 +111,6 @@ export default function Sidebar() {
   }, [status, session?.user?.id, fetchHistory]);
 
 
-  // Scroll listener to fetch more when reaching bottom
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -137,22 +137,25 @@ export default function Sidebar() {
     }
   };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
+  };
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (prompt.trim()) {
-      const stored = JSON.parse(localStorage.getItem("prompt-history") || "[]");
-      const filtered = stored.filter(
-        (entry: { prompt: string }) => entry.prompt !== prompt
-      );
-      const updated = [{ prompt, model }, ...filtered].slice(0, 10);
-      localStorage.setItem("prompt-history", JSON.stringify(updated));
-
-      router.push(
-        `/builder?prompt=${encodeURIComponent(
-          prompt
-        )}&model=${encodeURIComponent(model)}`
-      );
-    }
+    if (!prompt.trim() && !imageFile) return;
+    router.push(`/builder?prompt=${encodeURIComponent(prompt)}`
+    );
   };
 
   const handleDeleteHistory = async (id: string) => {
@@ -210,73 +213,132 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="w-full max-w-3xl mt-20 mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-4xl font-bold mb-3">What do you want to build?</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="w-full">
+       <form onSubmit={handleSubmit} className="w-full">
           <div className="relative mb-8">
+            {imagePreview && (
+              <div className="mb-4 relative w-48 h-48">
+                <img src={imagePreview} alt="Image preview" className="rounded-xl object-cover w-full h-full" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="absolute top-2 right-2 bg-zinc-900 p-1 rounded-full text-white hover:bg-zinc-700"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="How can DevKit help you today?"
-              className="w-full h-32 p-5 bg-zinc-900 tracking-normal border border-zinc-800 rounded-xl outline-none resize-none placeholder-zinc-500 text-md pr-12 pb-12" // extra bottom padding
+              placeholder={imageFile ? "Describe the image or add instructions..." : "How can Bolt help you today?"}
+              className="w-full h-32 p-5 bg-zinc-900 tracking-normal border border-zinc-800 rounded-xl outline-none resize-none placeholder-zinc-500 text-md"
               aria-label="Website description"
             />
 
-            {/* Gemini model select dropdown */}
-            <div className="absolute left-5 bottom-5 z-10 w-48">
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md">
-                  <SelectValue placeholder="Choose Gemini model" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
-                  <SelectItem
-                    value="gemini-2.0-flash"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.0 Flash
-                  </SelectItem>
-                  <SelectItem
-                    value="gemini-2.5-pro"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.5 Pro
-                  </SelectItem>
-                  <SelectItem
-                    value="gemini-2.0-flash-lite"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.0 Flash Lite
-                  </SelectItem>
-                  <SelectItem
-                    value="gemini-2.5-flash-preview-05-20"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.5 Flash (05‑20 preview)
-                  </SelectItem>
-                  <SelectItem
-                    value="gemini-2.5-flash-preview-04-17"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.5 Flash (04‑17 preview)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept="image/png, image/jpeg, image/webp" // Restrict to image files
+            />
 
-            {prompt.trim() && (
+            <Popover>
+              <PopoverTrigger asChild className="absolute bottom-4 left-3">
+                <button
+                  type="button"
+                  className="p-2 rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </PopoverTrigger>
+
+              <PopoverContent
+                side="top"
+                align="start"
+                className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl w-64 space-y-3"
+              >
+                <div className="flex gap-3">
+                  <button
+                    title="Insert link"
+                    type="button"
+                    className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-700 text-white transition-colors"
+                  >
+                    <Link2 size={18} />
+                  </button>
+
+                  <button
+                    title="Upload file"
+                    type="button"
+                    className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-700 text-white transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FileIcon size={18} />
+                  </button>
+
+                  <Link
+                    href="/whiteboard"
+                    title="Open whiteboard"
+                    className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-700 text-white transition-colors"
+                  >
+                    <Clipboard size={18} />
+                  </Link>
+                </div>
+
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md">
+                    <SelectValue placeholder="Choose Gemini model" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
+
+                    <SelectItem
+                      value="gemini-2.0-flash-lite"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.0 Flash Lite
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-pro"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 pro
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-flash-preview-05-20"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 Flash (05‑20 preview)
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-flash-preview-04-17"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 Flash (04‑17 preview)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </PopoverContent>
+            </Popover>
+
+            {(prompt.trim() || imageFile) && (
               <button
                 type="submit"
-                className="absolute right-4 top-4 bg-blue-400 text-sm px-2 py-2 rounded-lg font-medium hover:bg-blue-500 transition-colors"
+                className="absolute right-4 top-4 bg-blue-400 text-sm p-2 rounded-lg font-medium hover:bg-blue-500 transition-colors"
               >
                 <ArrowRight />
               </button>
             )}
           </div>
-
           <div className="w-11/12 flex flex-wrap gap-3 justify-center">
             <button
               type="button"
@@ -315,7 +377,6 @@ export default function Sidebar() {
               Scaffold UI with shadcn
             </button>
           </div>
-
           <p className="text-center text-zinc-500 text-sm mt-6">
             or start a blank app with your favorite stack
           </p>
@@ -395,12 +456,6 @@ export default function Sidebar() {
           </div>
 
           <button
-            // onClick={() => {
-            //   setHistory([]);
-            //   setSkip(0);
-            //   setHasMore(true);
-            //   fetchHistory();
-            // }}
             onClick={async () => {
               try {
                 const res = await fetch("/api/generation/delete", {
@@ -412,7 +467,7 @@ export default function Sidebar() {
                 setHistory([]);
                 setSkip(0);
                 setHasMore(true);
-                fetchHistory(); // Optional: refresh new data if needed
+                fetchHistory();
               } catch (error) {
                 console.error("❌ Error clearing history:", error);
                 alert("Failed to clear history.");

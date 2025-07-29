@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   await dbConnect();
 
   try {
-    const { email, prompt, modelName, steps, output, files } = await req.json();
+    const { email, prompt, modelName, steps, output, files, imageUrl } = await req.json();
 
     if (!email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       modelName,
       steps,
       output,
+      imageUrl,
       files,
     });
     return NextResponse.json({ success: true, generation: newGeneration });

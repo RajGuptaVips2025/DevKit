@@ -20,6 +20,7 @@ import { saveAs } from 'file-saver';
 import { injectRuntimeErrorHandler } from '../utils/injectRuntimeErrorHandler';
 import { useSession } from "next-auth/react";
 import { CheckCircle, Circle, Clock } from 'lucide-react';
+import { useBuildStore } from '@/lib/store';
 
 export default function Builder() {
 
@@ -42,98 +43,112 @@ export default function Builder() {
   const [previewReady, setPreviewReady] = useState(false);
   const [editedPaths, setEditedPaths] = useState<Set<string>>(new Set());
   const [getDbId, setGetDbId] = useState<string>("")
+  const [uiPrompts, setUiPrompt] = useState<string>("")
   const { data: session } = useSession();
   const skipStepsUpdateRef = useRef(false);
+  const { model, imageFile } = useBuildStore.getState(); // Get data from store
 
 
-  const handleSend = async () => {
-    if (!userPrompt.trim()) return;
-    // Prevents empty prompt submission.
-
+  const handleSendMessage = async () => {
     const newMessage = { role: 'user' as const, content: userPrompt };
     setLoading(true);
     setPrompt('');
-    // Adds user's prompt to the chat, sets loading, and clears input field.
 
     try {
-      const stepsResponse = await axios.post(`/api/chat`, {
-        messages: [...llmMessages, newMessage],
-      });
-      // Calls backend to get assistant's response for the full chat history.
-      setLoading(false);
+      const formData = new FormData();
+      formData.append("prompt", userPrompt);
+      formData.append("prompts", JSON.stringify(llmMessages));
+      formData.append("uiprompt", uiPrompts);
+      formData.append("model", model);
+      // if (files) formData.append("image", files); // if sending image
 
-      const parsedSteps = parseXml(stepsResponse.data.response).map((x) => ({
-        ...x,
+      const stepsResponse = await axios.post(`/api/chat`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      // const stepsResponse = await axios.post(`/api/chat`, {
+      //   messages: [...llmMessages, newMessage],
+      //   model: modelParam,
+      // });
+
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: stepsResponse.data.response,
+      };
+
+      setLlmMessages((prev) => [...prev, newMessage]);
+      setLlmMessages((prev) => [...prev, assistantMessage]);
+
+      const parsedSteps = parseXml(stepsResponse.data.response).map((step) => ({
+        ...step,
         status: 'pending' as const,
       }));
-      // Parses the response from XML to structured steps. Each step is marked as "pending" for now.
 
-      setLlmMessages((x) => [...x, newMessage, { role: 'assistant', content: stepsResponse.data.response }]);
-      setSteps((s) => [...s, ...parsedSteps]);
-      localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify([...steps, ...parsedSteps]));
+      setSteps((prevSteps) => [...prevSteps, ...parsedSteps]);
+      console.log(steps)
 
-      await axios.post("/api/generation", {
-        prompt: userPrompt,
-        modelName: modelParam,
-        output: stepsResponse.data.response,
-        files, // current files state
-      });
     } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
       setLoading(false);
-      console.error("Error sending prompt:", error);
     }
   };
 
   const init = async () => {
-    try {
-      const response = await axios.post(`/api/template`, { prompt: prompt?.trim() });
-      setTemplateSet(true);
-
-      const { prompts, uiPrompts } = response.data;
-      const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({
-        ...x,
-        status: 'pending' as const,
-      }));
-      setSteps(parsedInitialSteps);
-
-      setLoading(true);
-      const stepsResponse = await axios.post(`/api/chat`, {
-        model: modelParam,
-        messages: [...prompts, prompt].map((p) => ({ role: 'user', parts: p })),
-      });
-      setLoading(false);
-
-      const assistantSteps = parseXml(stepsResponse.data.response).map((x) => ({
-        ...x,
-        status: 'pending' as const,
-      }));
-      const finalSteps = [...parsedInitialSteps, ...assistantSteps];
-      setSteps(finalSteps);
-      const fullMessages = [
-        ...prompts.map((p: string) => ({ role: 'user', content: p })),
-        { role: 'user', content: prompt! },
-        { role: 'assistant', content: stepsResponse.data.response },
-      ];
-      setLlmMessages(fullMessages);
-  setActiveTab('preview')
-
-      localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps));
-
-      const saveResponse = await axios.post("/api/generation", {
-        prompt: prompt?.trim(),
-        modelName: modelParam,
-        steps: finalSteps,
-        output: stepsResponse.data.response,
-        files,
-        email: session?.user?.email, // manually pass email
-      });
-      const generationId = saveResponse.data.generation._id;
-      setGetDbId(saveResponse.data.generation._id)
-      localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
-
-    } catch (err) {
-      console.error("❌ init() failed:", err);
+    const formData = new FormData();
+    formData.append('prompt', prompt?.trim() || '');
+    if (imageFile) {
+      formData.append('image', imageFile);
     }
+
+    formData.append('model', model);
+
+    const templateResponse = await axios.post(`/api/template`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    setTemplateSet(true);
+    const { prompts, uiPrompts, imageUrl } = templateResponse.data;
+    const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({ ...x, status: 'pending' as const }));
+    setSteps(parsedInitialSteps);
+    setUiPrompt(uiPrompts)
+    setLoading(true);
+    formData.append("prompts", JSON.stringify(prompts)); // ← exact same data
+    formData.append("uiprompt", uiPrompts); // ← new prompt
+
+    const stepsResponse = await axios.post(`/api/chat`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    setLoading(false);
+
+    const finalSteps = [
+      ...parsedInitialSteps,
+      ...parseXml(stepsResponse.data.response).map((x) => ({ ...x, status: 'pending' as const })),
+    ];
+    setSteps(finalSteps);
+
+
+    setLlmMessages([
+      ...prompts.map((p: string) => ({ role: 'user', content: p })),
+      { role: 'user', content: prompt! },
+      { role: 'assistant', content: stepsResponse.data.response },
+    ]); // Saves conversation
+    setActiveTab('preview')
+
+    localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps)); // Stores steps
+    const saveResponse = await axios.post("/api/generation", {
+      prompt: prompt?.trim(),
+      modelName: model,
+      steps: finalSteps,
+      output: stepsResponse.data.response,
+      files,
+      imageUrl,
+      email: session?.user?.email, // manually pass email
+    });
+    const generationId = saveResponse.data.generation._id;
+    setGetDbId(saveResponse.data.generation._id)
+    localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
+    // localStorage.setItem(`ai-files-${prompt}`, JSON.stringify([])); // will update when files are built
   };
 
 
@@ -478,7 +493,7 @@ export default function Builder() {
                   placeholder="What do you want to build?"
                   className="flex-1 bg-[#2a2a3d] text-white border border-[#3b3b4f] placeholder:text-gray-500 resize-none"
                 />
-                <Button onClick={handleSend}>Send</Button>
+                <Button onClick={handleSendMessage}>Send</Button>
               </div>
             )}
           </div>
