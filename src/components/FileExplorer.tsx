@@ -5,6 +5,7 @@ import { FileItem } from '@/app/types';
 interface FileExplorerProps {
   files: FileItem[];
   onFileSelect: (file: FileItem) => void;
+  onTabChange: (tab: 'code' | 'preview') => void;
 }
 
 interface FileNodeProps {
@@ -26,60 +27,65 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
 
   return (
     <div className="select-none">
-    <div
-      className="flex items-center gap-2 p-2 hover:bg-gray-800 rounded-md cursor-pointer"
-      style={{ paddingLeft: `${depth * 1.5}rem` }}
-      onClick={handleClick}
-    >
-      {item.type === 'folder' && (
-        <span className="text-gray-400">
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </span>
-      )}
-      {item.type === 'folder' ? (
-        <FolderTree className="w-4 h-4 text-blue-400" />
-      ) : (
-        <File className="w-4 h-4 text-gray-400" />
-      )}
-      <span className="text-gray-200">{item.name}</span>
-    </div>
-    {item.type === 'folder' && isExpanded && item.children && (
-      <div>
-        {item.children.map((child, index) => (
-          <FileNode
-            key={`${child.path}-${index}`}
-            item={child}
-            depth={depth + 1}
-            onFileClick={onFileClick}
-          />
-        ))}
+      <div
+        className="flex items-center gap-2 p-2 hover:bg-gray-800 rounded-md cursor-pointer"
+        style={{ paddingLeft: `${depth * 1.5}rem` }}
+        onClick={handleClick}
+      >
+        {item.type === 'folder' && (
+          <span className="text-gray-400">
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </span>
+        )}
+        {item.type === 'folder' ? (
+          <FolderTree className="w-4 h-4 text-blue-400" />
+        ) : (
+          <File className="w-4 h-4 text-gray-400" />
+        )}
+        <span className="text-gray-200">{item.name}</span>
       </div>
-    )}
-  </div>
+      {item.type === 'folder' && isExpanded && item.children && (
+        <div>
+          {item.children.map((child, index) => (
+            <FileNode
+              key={`${child.path}-${index}`}
+              item={child}
+              depth={depth + 1}
+              onFileClick={onFileClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
-export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
+export function FileExplorer({ files, onFileSelect, onTabChange }: FileExplorerProps) {
+  const handleFileClick = (file: FileItem) => {
+    onFileSelect(file);
+    onTabChange("code");
+  };
+
   return (
     <div className="bg-black rounded-lg shadow-lg p-4 h-[76vh] overflow-auto scrollbar-hide">
-    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-100">
-      <FolderTree className="w-5 h-5" />
-      File Explorer
-    </h2>
-    <div className="space-y-1">
-      {files.map((file, index) => (
-        <FileNode
-          key={`${file.path}-${index}`}
-          item={file}
-          depth={0}
-          onFileClick={onFileSelect}
-        />
-      ))}
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-100">
+        <FolderTree className="w-5 h-5" />
+        File Explorer
+      </h2>
+      <div className="space-y-1">
+        {files.map((file, index) => (
+          <FileNode
+            key={`${file.path}-${index}`}
+            item={file}
+            depth={0}
+            onFileClick={handleFileClick}
+          />
+        ))}
+      </div>
     </div>
-  </div>
   );
 }
