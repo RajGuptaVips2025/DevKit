@@ -6,7 +6,7 @@ import { CodeEditor } from '../../components/CodeEditor';
 import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { injectRuntimeErrorHandler } from '../utils/injectRuntimeErrorHandler';
 import { useSession } from "next-auth/react";
 import { CheckCircle, Circle, Clock } from 'lucide-react';
 import { useBuildStore } from '@/lib/store';
+import toast from 'react-hot-toast';
 
 export default function Builder() {
 
@@ -47,7 +48,7 @@ export default function Builder() {
   const { data: session } = useSession();
   const skipStepsUpdateRef = useRef(false);
   const { model, imageFile } = useBuildStore.getState(); // Get data from store
-
+  const router = useRouter();
 
   const handleSendMessage = async () => {
     const newMessage = { role: 'user' as const, content: userPrompt };
@@ -202,45 +203,65 @@ export default function Builder() {
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
+    const checkLimit = async () => {
+      try {
+        const cachedSteps = localStorage.getItem(`ai-steps-${prompt}`);
+        const cachedFiles = localStorage.getItem(`ai-files-${prompt}`);
+        const selectedPath = localStorage.getItem(`ai-selected-${prompt}`);
+        const isGenerated = localStorage.getItem(`ai-generated-${prompt}`) === 'true';
+        const cachedEditedPaths = localStorage.getItem(`ai-edited-${prompt}`);
 
-    const cachedSteps = localStorage.getItem(`ai-steps-${prompt}`);
-    const cachedFiles = localStorage.getItem(`ai-files-${prompt}`);
-    const selectedPath = localStorage.getItem(`ai-selected-${prompt}`);
-    const isGenerated = localStorage.getItem(`ai-generated-${prompt}`) === 'true';
-    const cachedEditedPaths = localStorage.getItem(`ai-edited-${prompt}`);
+        if (cachedEditedPaths) {
+          setEditedPaths(new Set(JSON.parse(cachedEditedPaths)));
+        }
+        if (cachedSteps && cachedFiles && isGenerated) {
+          setSteps(JSON.parse(cachedSteps));
+          const parsedFiles: FileItem[] = JSON.parse(cachedFiles);
+          setFiles(parsedFiles);
+          setTemplateSet(true);
 
-    if (cachedEditedPaths) {
-      setEditedPaths(new Set(JSON.parse(cachedEditedPaths)));
-    }
-    if (cachedSteps && cachedFiles && isGenerated) {
-      setSteps(JSON.parse(cachedSteps));
-      const parsedFiles: FileItem[] = JSON.parse(cachedFiles);
-      setFiles(parsedFiles);
-      setTemplateSet(true);
+          if (selectedPath) {
+            const findFile = (items: FileItem[]): FileItem | null => {
+              for (const item of items) {
+                if (item.path === selectedPath) return item;
+                if (item.type === "folder" && item.children) {
+                  const result = findFile(item.children);
+                  if (result) return result;
+                }
+              }
+              return null;
+            };
 
-      if (selectedPath) {
-        const findFile = (items: FileItem[]): FileItem | null => {
-          for (const item of items) {
-            if (item.path === selectedPath) return item;
-            if (item.type === "folder" && item.children) {
-              const result = findFile(item.children);
-              if (result) return result;
-            }
+            const selected = findFile(parsedFiles);
+            if (selected) setSelectedFile(selected);
           }
-          return null;
-        };
+        }
+        else if (id) {
+          skipStepsUpdateRef.current = true;
+          fromDB(); // ✅ call your DB fallback
+        }
+        else {
+           const response = await axios.post("/api/check-limit", {
+          email: session?.user?.email, // or userId
+        });
 
-        const selected = findFile(parsedFiles);
-        if (selected) setSelectedFile(selected);
+        const { limitReached } = response.data;
+
+        if (limitReached) {
+          toast.error("❌ You’ve reached your daily limit of 5 prompts.");
+          router.push("/"); // ⛔ redirect if over limit
+          return;
+        }
+
+          init(); // 🧪 fresh generation
+        }
+      } catch (error: any) {
+          router.push("/"); // ⛔ redirect if over limit
+          toast.error("❌ You’ve reached your daily limit of 5 prompts.");
+
       }
-    }
-    else if (id) {
-      skipStepsUpdateRef.current = true;
-      fromDB(); // ✅ call your DB fallback
-    }
-    else {
-      init(); // 🧪 fresh generation
-    }
+    };
+    checkLimit();
   }, [prompt, id]);
 
   useEffect(() => {
@@ -464,7 +485,7 @@ export default function Builder() {
         <Link href="/" className="text-white font-bold text-2xl tracking-tight">DevKit</Link>
         <button
           className="text-white hover:bg-[#2a2a3d] p-2 rounded"
-          // onClick={() => localStorage.clear()}
+        // onClick={() => localStorage.clear()}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -563,8 +584,8 @@ export default function Builder() {
                   <div
                     key={index}
                     className={`p-1 rounded-lg cursor-pointer transition-colors ${currentStep === step.id
-                        ? 'bg-gray-800 border border-gray-700'
-                        : 'hover:bg-gray-800'
+                      ? 'bg-gray-800 border border-gray-700'
+                      : 'hover:bg-gray-800'
                       }`}
                     onClick={() => setCurrentStep(step.id)}
                   >

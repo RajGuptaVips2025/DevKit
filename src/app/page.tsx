@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useBuildStore } from "@/lib/store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import toast from "react-hot-toast";
 
 // Ensure axios sends cookies with requests
 axios.defaults.withCredentials = true;
@@ -150,13 +151,32 @@ export default function Sidebar() {
       setImagePreview(null);
     }
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim() && !imageFile) return;
-    router.push(`/builder?prompt=${encodeURIComponent(prompt)}`
-    );
-  };
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!prompt.trim() && !imageFile) return;
+
+  try {
+    const response = await axios.post("/api/check-limit", {
+      email: session?.user?.email, // or use userId if you prefer
+    });
+
+    const { limitReached } = response.data;
+
+    if (limitReached) {
+      toast.error("❌ You’ve reached your daily limit of 5 prompts.");
+      return;
+    }
+
+    // Proceed if under limit
+    router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+  } catch (error: any) {
+    console.error("Error checking limit:", error);
+    toast.error("Something went wrong. Please try again.");
+  }
+};
+
 
   const handleDeleteHistory = async (id: string) => {
     try {
