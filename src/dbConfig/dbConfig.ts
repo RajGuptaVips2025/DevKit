@@ -9,12 +9,8 @@ const dbConnect = async () => {
   }
 
   try {
-    // Make sure to call mongoose.connect() here
     await mongoose.connect(process.env.MONGO_URI!, {
-      dbName: "MajorProject", // Optional: specify your DB name here
-      // Other options to avoid deprecation warnings can be added
-      // useNewUrlParser: true,
-      // useUnifiedTopology: true,
+      dbName: "MajorProject", 
     });
 
     mongoose.connection.setMaxListeners(20); // Optional: avoid listener warnings

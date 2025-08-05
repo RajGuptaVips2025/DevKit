@@ -1,24 +1,45 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
-// Define an interface for the User document
 export interface IUser extends Document {
   name: string;
   email: string;
-  password?: string | null; // ✅ Make it optional
+  lastPromptTime?: Date;     // for 24-hour daily prompt tracking
+  lastCooldownTime?: Date;   // for 60-second cooldown tracking
+  dailyPromptCount?: number;
 }
 
-// Define the User schema
 const userSchema = new Schema<IUser>(
   {
-    name: { type: String, required: true, unique: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: false, default: null }, // ✅ Not required
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    lastPromptTime: {
+      type: Date,
+      default: null,
+    },
+    lastCooldownTime: {
+      type: Date,
+      default: null,
+    },
+    dailyPromptCount: {
+      type: Number,
+      default: 0,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Check if the model already exists to avoid overwriting it
-const User: Model<IUser> =
-  mongoose.models.User || mongoose.model<IUser>("User", userSchema);
+const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", userSchema);
 
 export default User;

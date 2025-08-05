@@ -11,10 +11,13 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@monaco-editor/react": "^4.6.0",
+    "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-hover-card": "^1.1.6",
     "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-popover": "^1.1.14",
     "@radix-ui/react-scroll-area": "^1.2.2",
+    "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-toast": "^1.2.4",
@@ -24,6 +27,7 @@
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.7.0",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
     "file-saver": "^2.0.5",
@@ -39,9 +43,11 @@
     "react-hot-toast": "^2.5.2",
     "react-icons": "^5.5.0",
     "react-toastify": "^11.0.5",
+    "streamifier": "^0.1.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -50,6 +56,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/streamifier": "^0.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.1.3",
     "postcss": "^8",
