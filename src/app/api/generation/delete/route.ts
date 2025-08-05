@@ -3,7 +3,6 @@ import Generation from "@/models/Generation";
 import dbConnect from "@/dbConfig/dbConfig";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/authOptions";
-// import { authOptions } from "../../auth/[...nextauth]/route";
 
 export async function DELETE() {
   try {

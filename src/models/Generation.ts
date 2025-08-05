@@ -20,6 +20,7 @@ interface FileNode {
 
 export interface IGeneration extends Document {
   user: Types.ObjectId;
+  imageUrl?: string;
   prompt: string;
   modelName: string;
   output: string;
@@ -47,6 +48,7 @@ FileNodeSchema.add({
 const GenerationSchema = new Schema<IGeneration>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    imageUrl: { type: String, default: null },
     prompt: { type: String, required: true },
     modelName: { type: String, required: true },
     output: { type: String, required: true },

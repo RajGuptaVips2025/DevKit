@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { FaFigma } from "react-icons/fa";
+import { ArrowRight, FileIcon, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -14,6 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useBuildStore } from "@/lib/store";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import toast from "react-hot-toast";
+import Image from 'next/image';
+import * as Accordion from '@radix-ui/react-accordion';
+import { ChevronDown } from 'lucide-react';
 
 // Ensure axios sends cookies with requests
 axios.defaults.withCredentials = true;
@@ -25,18 +30,30 @@ export default function Sidebar() {
   const [history, setHistory] = useState<
     { _id: string; prompt: string; modelName: string }[] | null
   >(null);
-  // const lastUserId = useRef<string | null>(null);
   const lastUserId = useRef<string | null | undefined>(null);
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const limit = 10;
-  const [model, setModel] = useState("gemini-2.0-flash");
-  const [prompt, setPrompt] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  const {
+    prompt,
+    setPrompt,
+    model,
+    setModel,
+    imageFile,
+    setImageFile,
+    isCooldown,
+    cooldownTime,
+    startCooldown,
+  } = useBuildStore();
+
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const handleLogout = async () => {
     await signOut({ redirect: false });
@@ -47,17 +64,14 @@ export default function Sidebar() {
     window.location.replace("/login");
   };
 
-  // Redirect unauthenticated users client-side
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
     }
   }, [status, router]);
 
-  // Fetch user history from API
   const fetchHistory = useCallback(async () => {
     if (!hasMore || loading || status !== "authenticated") return;
-
     setLoading(true);
 
     try {
@@ -80,10 +94,7 @@ export default function Sidebar() {
       });
 
       setSkip((prev) => prev + limit);
-
-      if (newData.length < limit) {
-        setHasMore(false);
-      }
+      if (newData.length < limit) setHasMore(false);
     } catch (err) {
       console.error("Failed to fetch prompt history", err);
     } finally {
@@ -110,7 +121,6 @@ export default function Sidebar() {
   }, [status, session?.user?.id, fetchHistory]);
 
 
-  // Scroll listener to fetch more when reaching bottom
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -128,32 +138,89 @@ export default function Sidebar() {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchHistory]);
 
-  const handleSuggestionClick = (suggestion: string, shouldRedirect = false) => {
-    if (shouldRedirect) {
-      const encodedPrompt = encodeURIComponent(suggestion);
-      router.push(`/builder?prompt=${encodedPrompt}&model=${model}`);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     } else {
-      setPrompt(suggestion);
+      setImagePreview(null);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const sanitizePromptFramework = (input: string): string => {
+    const forbiddenFrameworks = [
+      "angular",
+      "vue",
+      "svelte",
+      "next\\.js", // if you only want React
+      "nuxt",
+      "ember",
+      "solidjs",
+      "preact",
+      "jquery",
+      "backbone",
+      "vanilla js",
+      "flutter",
+      "swift",
+      "kotlin",
+      "android",
+      "ios",
+      "java",
+      "php",
+      "django",
+      "laravel",
+      "node\\.js", // optional
+    ];
+
+    const pattern = new RegExp(`\\b(${forbiddenFrameworks.join("|")})\\b`, "gi");
+
+    return input.replace(pattern, "React");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (prompt.trim()) {
-      const stored = JSON.parse(localStorage.getItem("prompt-history") || "[]");
-      const filtered = stored.filter(
-        (entry: { prompt: string }) => entry.prompt !== prompt
-      );
-      const updated = [{ prompt, model }, ...filtered].slice(0, 10);
-      localStorage.setItem("prompt-history", JSON.stringify(updated));
+    if (!prompt.trim() && !imageFile) return;
+    if (isCooldown) return;
 
-      router.push(
-        `/builder?prompt=${encodeURIComponent(
-          prompt
-        )}&model=${encodeURIComponent(model)}`
-      );
+    const cleanedPrompt = sanitizePromptFramework(prompt);
+    setPrompt(cleanedPrompt);
+
+    try {
+      const res = await axios.post("/api/limit");
+      const { allowed, remaining, timeLeft } = res.data;
+
+      if (!allowed) {
+        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+        const minutes = Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        toast.error(`Daily limit reached. Try again in ${hours}h ${minutes}m.`);
+        return;
+      }
+
+      toast.success(`Prompt allowed! You have ${remaining} prompts left today.`);
+      router.push(`/builder?prompt=${encodeURIComponent(cleanedPrompt)}&model=${model}`);
+      startCooldown(60); // 60s cooldown
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+      console.error(err);
     }
   };
+
+
+  useEffect(() => {
+    const last = localStorage.getItem("lastPromptTime");
+    if (last) {
+      const elapsed = Math.floor((Date.now() - Number(last)) / 1000);
+      const remaining = 60 - elapsed;
+      if (remaining > 0) {
+        startCooldown(remaining);
+      }
+    }
+  }, [startCooldown]);
 
   const handleDeleteHistory = async (id: string) => {
     try {
@@ -173,7 +240,6 @@ export default function Sidebar() {
       alert("Failed to delete history item.");
     }
   };
-
 
   if (status === "loading")
     return (
@@ -210,116 +276,180 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="w-full max-w-3xl mt-20 mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-4xl font-bold mb-3">What do you want to build?</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="w-full">
-          <div className="relative mb-8">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[8rem]">
+            {imagePreview && (
+              <div className="relative mb-3 w-32 h-32">
+                <Image
+                  src={imagePreview}
+                  alt="Image preview"
+                  fill
+                  className="rounded-md object-cover"
+                  sizes="128px"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="absolute top-1 right-1 bg-zinc-900 text-white p-1 rounded-full hover:bg-zinc-700 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <textarea
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="How can DevKit help you today?"
-              className="w-full h-32 p-5 bg-zinc-900 tracking-normal border border-zinc-800 rounded-xl outline-none resize-none placeholder-zinc-500 text-md pr-12 pb-12" // extra bottom padding
-              aria-label="Website description"
+              // onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {
+                const input = e.target.value;
+                if (input.length <= 500) {
+                  setPrompt(input);
+                }
+              }}
+              placeholder={imageFile ? "Describe the image or add instructions..." : "What do you want to build?"}
+              className="w-full bg-transparent outline-none resize-none placeholder-zinc-500 text-md text-white pr-10 scrollbar-hide"
+              rows={imagePreview ? 3 : 4}
             />
 
-            {/* Gemini model select dropdown */}
-            <div className="absolute left-5 bottom-5 z-10 w-48">
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md">
-                  <SelectValue placeholder="Choose Gemini model" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
-                  <SelectItem
-                    value="gemini-2.0-flash"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept="image/png, image/jpeg, image/webp" // Restrict to image files
+            />
+
+            <Popover>
+              <PopoverTrigger asChild className="absolute bottom-4 left-3">
+                <button
+                  type="button"
+                  className="p-2 rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </PopoverTrigger>
+
+              <PopoverContent
+                side="top"
+                align="start"
+                className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl w-64 space-y-3"
+              >
+                <div className="flex gap-3">
+                  <button
+                    title="Upload file"
+                    type="button"
+                    className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-700 text-white transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    Gemini 2.0 Flash
-                  </SelectItem>
-                  <SelectItem
-                    value="gemini-2.5-pro"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.5 Pro
-                  </SelectItem>
-                  <SelectItem
-                    value="gemini-2.0-flash-lite"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.0 Flash Lite
-                  </SelectItem>
-                  <SelectItem
+                    <FileIcon size={18} />
+                  </button>
+                </div>
+
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md">
+                    <SelectValue placeholder="Choose Gemini model" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
+
+                    <SelectItem
+                      value="gemini-2.0-flash-lite"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.0 Flash Lite
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-pro"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 pro
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-flash"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 Flash
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-flash-preview-04-17"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 Flash (04‑17 preview)
+                    </SelectItem>
+                    <SelectItem
                     value="gemini-2.5-flash-preview-05-20"
                     className="hover:bg-zinc-700 text-white cursor-pointer"
                   >
                     Gemini 2.5 Flash (05‑20 preview)
                   </SelectItem>
-                  <SelectItem
-                    value="gemini-2.5-flash-preview-04-17"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.5 Flash (04‑17 preview)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              </PopoverContent>
+            </Popover>
+
+
+            <div className="text-right text-xs text-zinc-500 mt-1 mr-12">
+              {prompt.length}/500 characters
             </div>
 
-            {prompt.trim() && (
+            {(prompt.trim() || imageFile) && (
               <button
                 type="submit"
-                className="absolute right-4 top-4 bg-blue-400 text-sm px-2 py-2 rounded-lg font-medium hover:bg-blue-500 transition-colors"
+                disabled={isCooldown}
+                className={`absolute bottom-3 right-3 p-2 rounded-lg transition-colors
+                ${isCooldown ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}
+                `}
               >
-                <ArrowRight />
+                {isCooldown ? `Wait ${cooldownTime}s` : <ArrowRight className="text-white" />}
               </button>
             )}
-          </div>
 
-          <div className="w-11/12 flex flex-wrap gap-3 justify-center">
-            <button
-              type="button"
-              onClick={() => handleSuggestionClick("Import from Figma")}
-              className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-full text-xs hover:bg-zinc-800 transition-colors flex items-center"
-            >
-              <FaFigma size={15} />
-              &nbsp;Import from Figma
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSuggestionClick("Build a mobile app with Expo")}
-              className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-full text-xs hover:bg-zinc-800 transition-colors"
-            >
-              Build a mobile app with Expo
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSuggestionClick("Start a blog with Astro")}
-              className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-full text-xs hover:bg-zinc-800 transition-colors"
-            >
-              Start a blog with Astro
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSuggestionClick("Create a docs site with Vitepress")}
-              className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-full text-xs hover:bg-zinc-800 transition-colors"
-            >
-              Create a docs site with Vitepress
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSuggestionClick("Scaffold UI with shadcn")}
-              className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-full text-xs hover:bg-zinc-800 transition-colors"
-            >
-              Scaffold UI with shadcn
-            </button>
           </div>
-
-          <p className="text-center text-zinc-500 text-sm mt-6">
-            or start a blank app with your favorite stack
-          </p>
         </form>
+
+        <Accordion.Root
+          type="single"
+          collapsible
+          className="w-full max-w-3xl mt-6 space-y-2"
+        >
+          <Accordion.Item value="item-1" className="bg-zinc-900 border border-zinc-800 rounded-lg">
+            <Accordion.Trigger className="w-full flex justify-between items-center p-4 text-left font-medium hover:bg-zinc-800 transition-colors">
+              <span>Framework Focused</span>
+              <ChevronDown className="transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </Accordion.Trigger>
+            <Accordion.Content className="px-4 pb-4 text-sm text-zinc-400">
+              This tool is tailored for building projects with the <strong>React framework</strong>. All code generated is structured using modern React conventions and best practices.
+            </Accordion.Content>
+          </Accordion.Item>
+
+          <Accordion.Item value="item-2" className="bg-zinc-900 border border-zinc-800 rounded-lg">
+            <Accordion.Trigger className="w-full flex justify-between items-center p-4 text-left font-medium hover:bg-zinc-800 transition-colors">
+              <span>Live Code Editing</span>
+              <ChevronDown className="transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </Accordion.Trigger>
+            <Accordion.Content className="px-4 pb-4 text-sm text-zinc-400">
+              You can edit the generated code directly in the built-in code editor. All updates are reflected in real time in the preview pane.
+            </Accordion.Content>
+          </Accordion.Item>
+
+          <Accordion.Item value="item-3" className="bg-zinc-900 border border-zinc-800 rounded-lg">
+            <Accordion.Trigger className="w-full flex justify-between items-center p-4 text-left font-medium hover:bg-zinc-800 transition-colors">
+              <span>Developer Experience Optimized</span>
+              <ChevronDown className="transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </Accordion.Trigger>
+            <Accordion.Content className="px-4 pb-4 text-sm text-zinc-400">
+              DevKit is built to streamline your development workflow. With intelligent code suggestions, image-based prompting, and instant previews, you can focus more on building and less on setup.
+            </Accordion.Content>
+          </Accordion.Item>
+        </Accordion.Root>
 
       </div>
 
@@ -395,12 +525,6 @@ export default function Sidebar() {
           </div>
 
           <button
-            // onClick={() => {
-            //   setHistory([]);
-            //   setSkip(0);
-            //   setHasMore(true);
-            //   fetchHistory();
-            // }}
             onClick={async () => {
               try {
                 const res = await fetch("/api/generation/delete", {
@@ -412,7 +536,7 @@ export default function Sidebar() {
                 setHistory([]);
                 setSkip(0);
                 setHasMore(true);
-                fetchHistory(); // Optional: refresh new data if needed
+                fetchHistory();
               } catch (error) {
                 console.error("❌ Error clearing history:", error);
                 alert("Failed to clear history.");

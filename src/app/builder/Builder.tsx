@@ -7,7 +7,7 @@ import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
 import { useSearchParams } from 'next/navigation';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { StepsList } from '@/components/StepsList';
@@ -20,13 +20,16 @@ import { saveAs } from 'file-saver';
 import { injectRuntimeErrorHandler } from '../utils/injectRuntimeErrorHandler';
 import { useSession } from "next-auth/react";
 import { CheckCircle, Circle, Clock } from 'lucide-react';
+import { useBuildStore } from '@/lib/store';
+import { useRouter } from "next/navigation"; // Add router import
+import toast from 'react-hot-toast';
 
 export default function Builder() {
 
   const hydratedRef = useRef(false);
   const searchParams = useSearchParams();
   const prompt = decodeURIComponent(searchParams.get('prompt') || '');
-  const modelParam = searchParams.get("model") || "gemini-2.5-flash-preview-05-20";
+  // const modelParam = searchParams.get("model") || "gemini-2.5-flash-preview-05-20";
   const id = searchParams.get("id");
   const [userPrompt, setPrompt] = useState('');
   const [llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -42,100 +45,195 @@ export default function Builder() {
   const [previewReady, setPreviewReady] = useState(false);
   const [editedPaths, setEditedPaths] = useState<Set<string>>(new Set());
   const [getDbId, setGetDbId] = useState<string>("")
+  const [uiPrompts, setUiPrompt] = useState<string>("")
   const { data: session } = useSession();
   const skipStepsUpdateRef = useRef(false);
+  const { model, imageFile, startCooldown } = useBuildStore.getState(); // Get data from store
+  const router = useRouter(); // Initialize router
 
 
-  const handleSend = async () => {
-    if (!userPrompt.trim()) return;
-    // Prevents empty prompt submission.
-
+  const handleSendMessage = async () => {
     const newMessage = { role: 'user' as const, content: userPrompt };
     setLoading(true);
     setPrompt('');
-    // Adds user's prompt to the chat, sets loading, and clears input field.
 
     try {
-      const stepsResponse = await axios.post(`/api/chat`, {
-        messages: [...llmMessages, newMessage],
-      });
-      // Calls backend to get assistant's response for the full chat history.
-      setLoading(false);
+      const formData = new FormData();
+      formData.append("prompt", userPrompt);
+      formData.append("prompts", JSON.stringify(llmMessages));
+      formData.append("uiprompt", uiPrompts);
+      formData.append("model", model);
 
-      const parsedSteps = parseXml(stepsResponse.data.response).map((x) => ({
-        ...x,
+      const stepsResponse = await axios.post(`/api/chat`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: stepsResponse.data.response,
+      };
+
+      setLlmMessages((prev) => [...prev, newMessage]);
+      setLlmMessages((prev) => [...prev, assistantMessage]);
+
+      const parsedSteps = parseXml(stepsResponse.data.response).map((step) => ({
+        ...step,
         status: 'pending' as const,
       }));
-      // Parses the response from XML to structured steps. Each step is marked as "pending" for now.
 
-      setLlmMessages((x) => [...x, newMessage, { role: 'assistant', content: stepsResponse.data.response }]);
-      setSteps((s) => [...s, ...parsedSteps]);
-      localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify([...steps, ...parsedSteps]));
+      setSteps((prevSteps) => [...prevSteps, ...parsedSteps]);
+      console.log(steps)
 
-      await axios.post("/api/generation", {
-        prompt: userPrompt,
-        modelName: modelParam,
-        output: stepsResponse.data.response,
-        files, // current files state
-      });
     } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
       setLoading(false);
-      console.error("Error sending prompt:", error);
     }
   };
 
   const init = async () => {
+    setLoading(true);
+
     try {
-      const response = await axios.post(`/api/template`, { prompt: prompt?.trim() });
+      const formData = new FormData();
+      formData.append('prompt', prompt?.trim() || '');
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+
+      formData.append('model', model);
+      formData.append('email', session?.user?.email || '');
+
+      // 🔹 First API call: Template generation
+      const templateResponse = await axios.post(`/api/template`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
       setTemplateSet(true);
 
-      const { prompts, uiPrompts } = response.data;
+      const { prompts, uiPrompts, imageUrl } = templateResponse.data;
       const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({
         ...x,
         status: 'pending' as const,
       }));
+
       setSteps(parsedInitialSteps);
+      setUiPrompt(uiPrompts);
 
-      setLoading(true);
-      const stepsResponse = await axios.post(`/api/chat`, {
-        model: modelParam,
-        messages: [...prompts, prompt].map((p) => ({ role: 'user', parts: p })),
+      formData.append('prompts', JSON.stringify(prompts));
+      formData.append('uiprompt', uiPrompts);
+
+      // 🔹 Second API call: Chat response generation
+      const stepsResponse = await axios.post(`/api/chat`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setLoading(false);
 
-      const assistantSteps = parseXml(stepsResponse.data.response).map((x) => ({
-        ...x,
-        status: 'pending' as const,
-      }));
-      const finalSteps = [...parsedInitialSteps, ...assistantSteps];
+      const finalSteps = [
+        ...parsedInitialSteps,
+        ...parseXml(stepsResponse.data.response).map((x) => ({
+          ...x,
+          status: 'pending' as const,
+        })),
+      ];
+
       setSteps(finalSteps);
-      const fullMessages = [
+      setLlmMessages([
         ...prompts.map((p: string) => ({ role: 'user', content: p })),
         { role: 'user', content: prompt! },
         { role: 'assistant', content: stepsResponse.data.response },
-      ];
-      setLlmMessages(fullMessages);
-  setActiveTab('preview')
+      ]);
 
+      setActiveTab('preview');
       localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps));
 
+      // 🔹 Final API call: Save generation to DB
       const saveResponse = await axios.post("/api/generation", {
         prompt: prompt?.trim(),
-        modelName: modelParam,
+        modelName: model,
         steps: finalSteps,
         output: stepsResponse.data.response,
         files,
-        email: session?.user?.email, // manually pass email
+        imageUrl,
+        email: session?.user?.email,
       });
-      const generationId = saveResponse.data.generation._id;
-      setGetDbId(saveResponse.data.generation._id)
-      localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
 
-    } catch (err) {
-      console.error("❌ init() failed:", err);
+      const generationId = saveResponse.data.generation._id;
+      setGetDbId(generationId);
+      localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
+      // localStorage.setItem(`ai-files-${prompt}`, JSON.stringify([])); // optional
+
+      // ✅ Cooldown starts after successful generation
+      startCooldown(60);
+      localStorage.setItem("lastPromptTime", Date.now().toString());
+    } catch (error) {
+      console.error('Error during init:', error);
+
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError<{ error: string; remainingSeconds?: number }>;
+        const status = axiosError.response?.status;
+
+        switch (status) {
+          case 400:
+             //alert("Bad request. Please check your input and try again.");
+             toast.error(`Bad request. Please check your input and try again.`);
+            break;
+
+          case 401:
+            //alert("Unauthorized. Please check your API key or login session.");
+            toast.error(`Unauthorized. Please check your API key or login session.`);
+
+            break;
+
+          case 403:
+            //alert("Access denied. You don’t have permission to use this model or feature.");
+            toast.error(`Access denied. You don’t have permission to use this model or feature.`);
+
+            break;
+
+          case 404:
+            //alert("Requested model or resource not found. Please check model name or API version.");
+            toast.error(`Requested model or resource not found. Please check model name or API version.`);
+
+            break;
+
+          case 429: {
+            const remaining = axiosError.response?.data.remainingSeconds || 60;
+            //alert(`You're sending requests too quickly. Please wait ${remaining} seconds.`);
+            toast.error(`You're sending requests too quickly. Please wait ${remaining} seconds.`);
+            startCooldown(remaining);
+            break;
+          }
+
+          case 500:
+            //alert("Internal server error. Please try again later.");
+            toast.error(`Internal server error. Please try again later.`);
+
+            break;
+
+          case 503:
+            //alert("Service temporarily unavailable. Please try again in a few minutes.");
+            toast.error(`Service temporarily unavailable. Please try again in a few minutes.`);
+
+            break;
+
+          default:
+            //alert("An unexpected error occurred. Please try again.");
+            toast.error(`An unexpected error occurred. Please try again.`);
+
+            break;
+        }
+      } else {
+        toast.error("An unknown error occurred. Please check your connection or try again.");
+      }
+
+      router.push('/'); // ✅ Redirect to home on error
+    }
+    finally {
+      setLoading(false);
     }
   };
-
 
   const fromDB = async () => {
     try {
@@ -447,14 +545,6 @@ export default function Builder() {
       {/* Header */}
       <div className="w-full bg-black border-b border-[#2c2c3a] px-6 py-3 flex justify-between items-center">
         <Link href="/" className="text-white font-bold text-2xl tracking-tight">DevKit</Link>
-        <button
-          className="text-white hover:bg-[#2a2a3d] p-2 rounded"
-          // onClick={() => localStorage.clear()}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
       </div>
 
       <div className="px-4">
@@ -478,7 +568,7 @@ export default function Builder() {
                   placeholder="What do you want to build?"
                   className="flex-1 bg-[#2a2a3d] text-white border border-[#3b3b4f] placeholder:text-gray-500 resize-none"
                 />
-                <Button onClick={handleSend}>Send</Button>
+                <Button onClick={handleSendMessage}>Send</Button>
               </div>
             )}
           </div>
@@ -548,8 +638,8 @@ export default function Builder() {
                   <div
                     key={index}
                     className={`p-1 rounded-lg cursor-pointer transition-colors ${currentStep === step.id
-                        ? 'bg-gray-800 border border-gray-700'
-                        : 'hover:bg-gray-800'
+                      ? 'bg-gray-800 border border-gray-700'
+                      : 'hover:bg-gray-800'
                       }`}
                     onClick={() => setCurrentStep(step.id)}
                   >

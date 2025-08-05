@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Generation from "@/models/Generation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/authOptions";
-// import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // adjust path
 
 export async function GET(req: NextRequest) {
   try {
