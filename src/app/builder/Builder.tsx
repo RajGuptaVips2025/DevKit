@@ -28,6 +28,7 @@ export default function Builder() {
   const hydratedRef = useRef(false);
   const searchParams = useSearchParams();
   const prompt = decodeURIComponent(searchParams.get('prompt') || '');
+  const framework = decodeURIComponent(searchParams.get('framework') || '');
   const modelParam = searchParams.get("model") || "gemini-2.5-flash-preview-05-20";
   const id = searchParams.get("id");
   const [userPrompt, setPrompt] = useState('');
@@ -49,7 +50,6 @@ export default function Builder() {
   const skipStepsUpdateRef = useRef(false);
   const { model, imageFile } = useBuildStore.getState(); // Get data from store
   const router = useRouter();
-
   const handleSendMessage = async () => {
     const newMessage = { role: 'user' as const, content: userPrompt };
     setLoading(true);
@@ -87,7 +87,6 @@ export default function Builder() {
       }));
 
       setSteps((prevSteps) => [...prevSteps, ...parsedSteps]);
-      console.log(steps)
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -98,12 +97,15 @@ export default function Builder() {
 
   const init = async () => {
     const formData = new FormData();
-    formData.append('prompt', prompt?.trim() || '');
+    // formData.append('prompt', prompt?.trim() || '');
+    formData.append('prompt', `${prompt?.trim() || ''} using ${framework?.trim() || ''}`);
+
     if (imageFile) {
       formData.append('image', imageFile);
     }
 
     formData.append('model', model);
+    formData.append('framework', framework);
 
     const templateResponse = await axios.post(`/api/template`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -116,6 +118,7 @@ export default function Builder() {
     setLoading(true);
     formData.append("prompts", JSON.stringify(prompts)); // ← exact same data
     formData.append("uiprompt", uiPrompts); // ← new prompt
+    formData.append('framework', framework?.trim() || '');
 
     const stepsResponse = await axios.post(`/api/chat`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -556,6 +559,7 @@ export default function Builder() {
                 )}
                 {webcontainer && (
                   <PreviewFrame
+                    framework={framework}
                     webContainer={webcontainer}
                     files={files}
                     onProgressUpdate={setPreviewProgress}
@@ -642,6 +646,7 @@ export default function Builder() {
                 )}
                 {webcontainer && (
                   <PreviewFrame
+                    framework={framework}
                     webContainer={webcontainer}
                     files={files}
                     onProgressUpdate={setPreviewProgress}

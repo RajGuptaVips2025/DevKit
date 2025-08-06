@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { basePrompt as nodeBasePrompt } from "../defaults/node";
 import { basePrompt as reactBasePrompt } from "../defaults/react";
-import { BASE_PROMPT } from "../prompts";
+import { basePrompt as angularBasePrompt } from "../defaults/angular";
+import { BASE_PROMPT, BASE_PROMPT_ANGULAR } from "../prompts";
 import cloudinary from "@/lib/cloudinary";
 import streamifier from "streamifier";
 
@@ -45,8 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const system =
-      "Return either node or react based on what do you think this project should be. Only return a single word either 'node' or 'react'. Do not return anything extra";
+    const system = "Return either node, react, or angular based on what you think this project should be. Only return a single word: either 'node', 'react', or 'angular'. Do not return anything extra.";
 
     const req = {
       contents: [
@@ -71,6 +71,14 @@ export async function POST(request: NextRequest) {
         imageUrl,
       });
 
+    } else if (answer.toLowerCase() === "angular") {
+      return NextResponse.json({
+        prompts: [BASE_PROMPT_ANGULAR,
+          `Here is an artifact that contains all files of the project visible to you.\nConsider the contents of ALL files in the project.\n\n${angularBasePrompt}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`,
+        ],
+        uiPrompts: [angularBasePrompt],
+        imageUrl,
+      })
     } else {
       return NextResponse.json({
         prompts: [

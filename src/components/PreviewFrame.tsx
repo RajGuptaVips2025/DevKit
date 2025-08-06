@@ -7,9 +7,11 @@ interface PreviewFrameProps {
   webContainer: WebContainer;
   onProgressUpdate: (progress: number) => void;
   onReady: () => void;
+  framework:string;
+
 }
 
-export function PreviewFrame({ webContainer, onProgressUpdate, onReady }: PreviewFrameProps) {
+export function PreviewFrame({ webContainer, onProgressUpdate, onReady, framework }: PreviewFrameProps) {
   const [url, setUrl] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const toastShownRef = useRef(false);
@@ -56,7 +58,11 @@ export function PreviewFrame({ webContainer, onProgressUpdate, onReady }: Previe
     installProcess.output.pipeTo(writable);
     await installProcess.exit;
 
-    await webContainer.spawn('npm', ['run', 'dev']);
+    if (framework === 'angular') {
+      await webContainer.spawn('ng', ['serve']);
+    } else {
+      await webContainer.spawn('npm', ['run', 'dev']);
+    }
 
     webContainer.on('server-ready', (port, url) => {
       console.log(port);

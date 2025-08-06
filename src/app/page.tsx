@@ -33,7 +33,7 @@ export default function Sidebar() {
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-
+  const [framework, setFramework] = useState('react');
   const containerRef = useRef<HTMLDivElement>(null);
   const limit = 10;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -170,7 +170,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     // Proceed if under limit
-    router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+      router.push(`/builder?prompt=${encodeURIComponent(prompt)}&model=${encodeURIComponent(model)}&framework=${encodeURIComponent(framework)}`);
+
   } catch (error: any) {
     console.error("Error checking limit:", error);
     toast.error("Something went wrong. Please try again.");
@@ -315,35 +316,22 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </Link>
                 </div>
 
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md">
-                    <SelectValue placeholder="Choose Gemini model" />
+                 <Select value={framework} onValueChange={setFramework}>
+                  <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md mt-2">
+                    <SelectValue placeholder="Select Framework (React or Angular)" />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
-
                     <SelectItem
-                      value="gemini-2.0-flash-lite"
+                      value="react"
                       className="hover:bg-zinc-700 text-white cursor-pointer"
                     >
-                      Gemini 2.0 Flash Lite
+                      React
                     </SelectItem>
                     <SelectItem
-                      value="gemini-2.5-pro"
+                      value="angular"
                       className="hover:bg-zinc-700 text-white cursor-pointer"
                     >
-                      Gemini 2.5 pro
-                    </SelectItem>
-                    <SelectItem
-                      value="gemini-2.5-flash-preview-05-20"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.5 Flash (05‑20 preview)
-                    </SelectItem>
-                    <SelectItem
-                      value="gemini-2.5-flash-preview-04-17"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.5 Flash (04‑17 preview)
+                      Angular
                     </SelectItem>
                   </SelectContent>
                 </Select>

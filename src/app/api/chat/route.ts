@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSystemPrompt } from "../prompts";
+import { getSystemPrompt, getSystemPromptAngular } from "../prompts";
 
 async function fileToGenerativePart(file: File) {
   const base64EncodedData = Buffer.from(await file.arrayBuffer()).toString("base64");
@@ -20,8 +20,9 @@ export async function POST(request: NextRequest) {
     const uiprompt = formData.get("uiprompt") as string | null;
     const imageFile = formData.get("image") as File | null;
     const modelName = (formData.get("model") as string) || "gemini-1.5-flash"; 
-    const systemPrompt = getSystemPrompt();
-    console.log(modelName)
+    const framework = (formData.get("framework") as string);
+    const systemPrompt =
+      framework?.toLowerCase() === "angular" ? getSystemPromptAngular() : getSystemPrompt();
 
     // Construct the multimodal message parts
     const userPromptParts: any[] = [];
