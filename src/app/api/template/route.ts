@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const prompt = formData.get("prompt") as string | null;
     const imageFile = formData.get("image") as File | null;
+    const framework = (formData.get("framework") as string);
+
     let imageUrl = null;
     console.log(prompt, imageFile)
 
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const answer = result.response.text().trim();
 
-    if (answer.toLowerCase() === "react") {
+    if (framework.toLowerCase() === "react") {
       return NextResponse.json({
         prompts: [BASE_PROMPT,
           `Here is an artifact that contains all files of the project visible to you.\nConsider the contents of ALL files in the project.\n\n${reactBasePrompt}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`,
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
         imageUrl,
       });
 
-    } else if (answer.toLowerCase() === "angular") {
+    } else if (framework.toLowerCase() === "angular") {
       return NextResponse.json({
         prompts: [BASE_PROMPT_ANGULAR,
           `Here is an artifact that contains all files of the project visible to you.\nConsider the contents of ALL files in the project.\n\n${angularBasePrompt}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`,
