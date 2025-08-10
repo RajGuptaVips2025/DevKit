@@ -1,6 +1,7 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 export interface IUser extends Document {
+  _id: Types.ObjectId;  
   name: string;
   email: string;
   lastPromptTime?: Date;     // for 24-hour daily prompt tracking

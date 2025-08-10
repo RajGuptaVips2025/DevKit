@@ -1,7 +1,42 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, useSession, signOut } from "next-auth/react";
+import { useEffect } from "react";
+
+function SessionWatcher({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated" && !session?.user?.id) {
+      // Auto logout and redirect to /login immediately
+      signOut({ redirect: true, callbackUrl: "/login" });
+    }
+  }, [status, session]);
+
+  return <>{children}</>;
+}
 
 export function SessionProviderWrapper({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      <SessionWatcher>{children}</SessionWatcher>
+    </SessionProvider>
+  );
 }
+
+
+
+
+
+
+
+
+
+
+// "use client";
+
+// import { SessionProvider } from "next-auth/react";
+
+// export function SessionProviderWrapper({ children }: { children: React.ReactNode }) {
+//   return <SessionProvider>{children}</SessionProvider>;
+// }

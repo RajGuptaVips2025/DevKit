@@ -1,4 +1,3 @@
-// lib/store.ts
 import { create } from 'zustand';
 
 interface BuildState {
@@ -13,28 +12,141 @@ interface BuildState {
   startCooldown: (seconds: number) => void;
 }
 
-export const useBuildStore = create<BuildState>((set, get) => ({
-  prompt: '',
-  model: 'gemini-2.5-pro',
-  imageFile: null,
-  isCooldown: false,
-  cooldownTime: 0,
+let cooldownInterval: NodeJS.Timeout | null = null;
 
-  setPrompt: (prompt) => set({ prompt }),
-  setModel: (model) => set({ model }),
-  setImageFile: (file) => set({ imageFile: file }),
+export const useBuildStore = create<BuildState>((set) => {
+  // const startCooldown = (seconds: number) => {
+  //   const endTime = Date.now() + seconds * 1000;
+  //   localStorage.setItem("cooldownEndTime", endTime.toString());
 
-  startCooldown: (seconds: number) => {
+  //   set({ isCooldown: true, cooldownTime: seconds });
+
+  //   const interval = setInterval(() => {
+  //     const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+
+  //     if (remaining <= 0) {
+  //       clearInterval(interval);
+  //       set({ isCooldown: false, cooldownTime: 0 });
+  //       localStorage.removeItem("cooldownEndTime");
+  //     } else {
+  //       set({ cooldownTime: remaining });
+  //     }
+  //   }, 1000);
+  // };
+
+   const startCooldown = (seconds: number) => {
+    if (cooldownInterval) {
+      clearInterval(cooldownInterval);
+      cooldownInterval = null;
+    }
+
+    const endTime = Date.now() + seconds * 1000;
+    localStorage.setItem("cooldownEndTime", endTime.toString());
+
     set({ isCooldown: true, cooldownTime: seconds });
 
-    const interval = setInterval(() => {
-      const { cooldownTime } = get();
-      if (cooldownTime <= 1) {
-        clearInterval(interval);
+    cooldownInterval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+
+      if (remaining <= 0) {
+        if (cooldownInterval) {
+          clearInterval(cooldownInterval);
+          cooldownInterval = null;
+        }
         set({ isCooldown: false, cooldownTime: 0 });
+        localStorage.removeItem("cooldownEndTime");
       } else {
-        set({ cooldownTime: cooldownTime - 1 });
+        set({ cooldownTime: remaining });
       }
     }, 1000);
-  },
-}));
+  };
+
+  // Check for stored cooldown on load and start if needed
+  // const storedEndTime = localStorage.getItem("cooldownEndTime");
+  // if (storedEndTime) {
+  //   const remaining = Math.max(0, Math.ceil((Number(storedEndTime) - Date.now()) / 1000));
+  //   if (remaining > 0) {
+  //     set({ isCooldown: true, cooldownTime: remaining });
+  //     // Start interval in background
+  //     startCooldown(remaining);
+  //   } else {
+  //     localStorage.removeItem("cooldownEndTime");
+  //   }
+  // }
+
+  return {
+    prompt: '',
+    // model: 'gemini-2.5-pro',
+    model: 'gemini-2.5-flash',
+    imageFile: null,
+    isCooldown: false,
+    cooldownTime: 0,
+    setPrompt: (prompt) => set({ prompt }),
+    setModel: (model) => set({ model }),
+    setImageFile: (file) => set({ imageFile: file }),
+    startCooldown,
+  };
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // lib/store.ts
+// import { create } from 'zustand';
+
+// interface BuildState {
+//   prompt: string;
+//   model: string;
+//   imageFile: File | null;
+//   isCooldown: boolean;
+//   cooldownTime: number;
+//   setPrompt: (prompt: string) => void;
+//   setModel: (model: string) => void;
+//   setImageFile: (file: File | null) => void;
+//   startCooldown: (seconds: number) => void;
+// }
+
+// export const useBuildStore = create<BuildState>((set, get) => ({
+//   prompt: '',
+//   model: 'gemini-2.5-pro',
+//   imageFile: null,
+//   isCooldown: false,
+//   cooldownTime: 0,
+
+//   setPrompt: (prompt) => set({ prompt }),
+//   setModel: (model) => set({ model }),
+//   setImageFile: (file) => set({ imageFile: file }),
+
+//   startCooldown: (seconds: number) => {
+//     set({ isCooldown: true, cooldownTime: seconds });
+
+//     const interval = setInterval(() => {
+//       const { cooldownTime } = get();
+//       if (cooldownTime <= 1) {
+//         clearInterval(interval);
+//         set({ isCooldown: false, cooldownTime: 0 });
+//       } else {
+//         set({ cooldownTime: cooldownTime - 1 });
+//       }
+//     }, 1000);
+//   },
+// }));
