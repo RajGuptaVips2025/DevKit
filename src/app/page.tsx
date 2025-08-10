@@ -34,6 +34,7 @@ export default function Sidebar() {
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [framework, setFramework] = useState('react');
   const containerRef = useRef<HTMLDivElement>(null);
   const limit = 10;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -154,7 +155,6 @@ export default function Sidebar() {
 
   const sanitizePromptFramework = (input: string): string => {
     const forbiddenFrameworks = [
-      "angular",
       "vue",
       "svelte",
       "next\\.js", // if you only want React
@@ -202,7 +202,8 @@ export default function Sidebar() {
       }
 
       toast.success(`Prompt allowed! You have ${remaining} prompts left today.`);
-      router.push(`/builder?prompt=${encodeURIComponent(cleanedPrompt)}&model=${model}`);
+      // router.push(`/builder?prompt=${encodeURIComponent(cleanedPrompt)}&model=${model}`);
+      router.push(`/builder?prompt=${encodeURIComponent(cleanedPrompt)}&model=${encodeURIComponent(model)}&framework=${encodeURIComponent(framework)}`);
       startCooldown(60); // 60s cooldown
     } catch (err) {
       toast.error("Something went wrong. Please try again.");
@@ -240,6 +241,21 @@ export default function Sidebar() {
       alert("Failed to delete history item.");
     }
   };
+
+  useEffect(() => {
+    setPrompt("");
+    setImageFile(null);
+
+    const storedEndTime = localStorage.getItem("cooldownEndTime");
+    if (storedEndTime) {
+      const remaining = Math.max(0, Math.ceil((Number(storedEndTime) - Date.now()) / 1000));
+      if (remaining > 0) {
+        startCooldown(remaining);
+      } else {
+        localStorage.removeItem("cooldownEndTime");
+      }
+    }
+  }, []);
 
   if (status === "loading")
     return (
@@ -361,10 +377,16 @@ export default function Sidebar() {
                   <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
 
                     <SelectItem
-                      value="gemini-2.0-flash-lite"
+                      value="gemini-2.5-flash"
                       className="hover:bg-zinc-700 text-white cursor-pointer"
                     >
-                      Gemini 2.0 Flash Lite
+                      Gemini 2.5 Flash
+                    </SelectItem>
+                    <SelectItem
+                      value="gemini-2.5-flash-preview-05-20"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Gemini 2.5 Flash (05‑20 preview)
                     </SelectItem>
                     <SelectItem
                       value="gemini-2.5-pro"
@@ -373,23 +395,30 @@ export default function Sidebar() {
                       Gemini 2.5 pro
                     </SelectItem>
                     <SelectItem
-                      value="gemini-2.5-flash"
+                      value="gemini-2.0-flash-lite"
                       className="hover:bg-zinc-700 text-white cursor-pointer"
                     >
-                      Gemini 2.5 Flash
+                      Gemini 2.0 Flash Lite
                     </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={framework} onValueChange={setFramework}>
+                  <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md mt-2">
+                    <SelectValue placeholder="Select Framework (React or Angular)" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
                     <SelectItem
-                      value="gemini-2.5-flash-preview-04-17"
+                      value="react"
                       className="hover:bg-zinc-700 text-white cursor-pointer"
                     >
-                      Gemini 2.5 Flash (04‑17 preview)
+                      React
                     </SelectItem>
                     <SelectItem
-                    value="gemini-2.5-flash-preview-05-20"
-                    className="hover:bg-zinc-700 text-white cursor-pointer"
-                  >
-                    Gemini 2.5 Flash (05‑20 preview)
-                  </SelectItem>
+                      value="angular"
+                      className="hover:bg-zinc-700 text-white cursor-pointer"
+                    >
+                      Angular
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </PopoverContent>

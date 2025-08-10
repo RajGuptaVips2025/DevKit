@@ -7,7 +7,7 @@ import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
 import { useSearchParams } from 'next/navigation';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { StepsList } from '@/components/StepsList';
@@ -29,6 +29,7 @@ export default function Builder() {
   const hydratedRef = useRef(false);
   const searchParams = useSearchParams();
   const prompt = decodeURIComponent(searchParams.get('prompt') || '');
+  const framework = decodeURIComponent(searchParams.get('framework') || '');
   // const modelParam = searchParams.get("model") || "gemini-2.5-flash-preview-05-20";
   const id = searchParams.get("id");
   const [userPrompt, setPrompt] = useState('');
@@ -98,12 +99,14 @@ export default function Builder() {
 
     try {
       const formData = new FormData();
-      formData.append('prompt', prompt?.trim() || '');
+      // formData.append('prompt', prompt?.trim() || '');
+      formData.append('prompt', `${prompt?.trim() || ''} using ${framework?.trim() || ''}`);
       if (imageFile) {
         formData.append('image', imageFile);
       }
 
       formData.append('model', model);
+      formData.append('framework', framework);
       formData.append('email', session?.user?.email || '');
 
       // 🔹 First API call: Template generation
@@ -122,14 +125,25 @@ export default function Builder() {
       setSteps(parsedInitialSteps);
       setUiPrompt(uiPrompts);
 
-      formData.append('prompts', JSON.stringify(prompts));
-      formData.append('uiprompt', uiPrompts);
+      // formData.append('prompts', JSON.stringify(prompts));
+      // formData.append('uiprompt', uiPrompts);
+      setLoading(true);
+      formData.append("prompts", JSON.stringify(prompts)); // ← exact same data
+      formData.append("uiprompt", uiPrompts); // ← new prompt
+      formData.append('framework', framework?.trim() || '');
 
       // 🔹 Second API call: Chat response generation
       const stepsResponse = await axios.post(`/api/chat`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
+      console.log(stepsResponse.data)
+      if (stepsResponse.data?.error) {
+        // Throw an error object that your catch can handle
+        throw {
+          isApiError: true,
+          ...stepsResponse.data.error,  // spread status, statusText, etc.
+        };
+      }
       const finalSteps = [
         ...parsedInitialSteps,
         ...parseXml(stepsResponse.data.response).map((x) => ({
@@ -167,17 +181,18 @@ export default function Builder() {
       // ✅ Cooldown starts after successful generation
       startCooldown(60);
       localStorage.setItem("lastPromptTime", Date.now().toString());
-    } catch (error) {
-      console.error('Error during init:', error);
+    } catch (error: any) {
+      console.error('Error during init:', error.status);
 
-      if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<{ error: string; remainingSeconds?: number }>;
-        const status = axiosError.response?.status;
+      if (error) {
+        // const axiosError = error as AxiosError<{ error: string; remainingSeconds?: number }>;
+        console.log("in catch block")
+        const status = error.status;
 
         switch (status) {
           case 400:
-             //alert("Bad request. Please check your input and try again.");
-             toast.error(`Bad request. Please check your input and try again.`);
+            //alert("Bad request. Please check your input and try again.");
+            toast.error(`Bad request. Please check your input and try again.`);
             break;
 
           case 401:
@@ -199,29 +214,20 @@ export default function Builder() {
             break;
 
           case 429: {
-            const remaining = axiosError.response?.data.remainingSeconds || 60;
-            //alert(`You're sending requests too quickly. Please wait ${remaining} seconds.`);
-            toast.error(`You're sending requests too quickly. Please wait ${remaining} seconds.`);
-            startCooldown(remaining);
+            toast.error(`Output Quota exceeded for this API method. Please try again later or try using different model`);
             break;
           }
 
           case 500:
-            //alert("Internal server error. Please try again later.");
-            toast.error(`Internal server error. Please try again later.`);
-
+            toast.error(`API servers are overloaded or temporarily down.Try using different model or try after a moment`);
             break;
 
           case 503:
-            //alert("Service temporarily unavailable. Please try again in a few minutes.");
-            toast.error(`Service temporarily unavailable. Please try again in a few minutes.`);
-
+            toast.error(`API servers are overloaded or temporarily down.Try using different model or try after a moment`);
             break;
 
           default:
-            //alert("An unexpected error occurred. Please try again.");
             toast.error(`An unexpected error occurred. Please try again.`);
-
             break;
         }
       } else {
@@ -610,6 +616,7 @@ export default function Builder() {
                 )}
                 {webcontainer && (
                   <PreviewFrame
+                    framework={framework}
                     webContainer={webcontainer}
                     files={files}
                     onProgressUpdate={setPreviewProgress}
@@ -696,6 +703,7 @@ export default function Builder() {
                 )}
                 {webcontainer && (
                   <PreviewFrame
+                    framework={framework}
                     webContainer={webcontainer}
                     files={files}
                     onProgressUpdate={setPreviewProgress}
