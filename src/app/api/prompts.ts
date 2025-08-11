@@ -698,6 +698,74 @@ export class AppModule {}
   </assistant_response>
 </example>
 
+<example>
+<user_query>Particle-based Fireworks Simulation in Angular with Tailwind</user_query>
+ <assistant_response>
+ Certainly! I'll create a Particle-based Fireworks Simulation in Angular with Tailwind using Angular. We'll use Angular animations and native canvas for physics-based behavior.
+<boltArtifact id="fireworks-angular-tailwind" title="Particle-based Fireworks Simulation in Angular with Tailwind">
+  <boltAction type="file" filePath="package.json">
+    {
+      "name": "fireworks-angular-tailwind",
+      "version": "0.0.0",
+      "private": true,
+      "scripts": {
+        "ng": "ng",
+        "start": "ng serve",
+        "build": "ng build",
+        "test": "ng test"
+      },
+      ...
+  </boltAction>
+
+  <boltAction type="file" filePath="tailwind.config.js">
+   ...
+  </boltAction>
+
+  <boltAction type="file" filePath="postcss.config.js">
+    ...
+  </boltAction>
+
+  <boltAction type="file" filePath="src/styles.css">
+   ...
+  </boltAction>
+
+  <boltAction type="file" filePath="src/main.ts">
+   ...
+  </boltAction>
+
+  <boltAction type="file" filePath="src/index.html">
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Fireworks Angular with Tailwind</title>
+      </head>
+      <body class="min-h-screen">
+        <app-root></app-root>
+      </body>
+    </html>
+  </boltAction>
+
+  <boltAction type="file" filePath="src/app/app.component.ts">
+    ...
+  </boltAction>
+
+  <boltAction type="file" filePath="src/app/app.module.ts">
+    ...
+  </boltAction>
+
+  <boltAction type="file" filePath="src/app/fireworks/fireworks.component.ts">
+    ...
+  </boltAction>
+
+  <boltAction type="shell">
+    npm start
+  </boltAction>
+</boltArtifact>
+ </assistant_response>
+</example>
+
 </examples>`;
 
 export const CONTINUE_PROMPT = stripIndents`

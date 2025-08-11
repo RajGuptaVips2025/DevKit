@@ -26,6 +26,7 @@ export interface IGeneration extends Document {
   output: string;
   steps?: Step[];
   files?: FileNode[];
+  framework:string;
   createdAt: Date;
 }
 
@@ -52,6 +53,7 @@ const GenerationSchema = new Schema<IGeneration>(
     prompt: { type: String, required: true },
     modelName: { type: String, required: true },
     output: { type: String, required: true },
+    framework: { type: String, required: true },
     steps: [
       {
         code: { type: String },

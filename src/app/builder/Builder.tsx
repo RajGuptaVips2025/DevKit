@@ -147,6 +147,7 @@ export default function Builder() {
       output: stepsResponse.data.response,
       files,
       imageUrl,
+      framework: framework,
       email: session?.user?.email, // manually pass email
     });
     const generationId = saveResponse.data.generation._id;
@@ -244,23 +245,23 @@ export default function Builder() {
           fromDB(); // ✅ call your DB fallback
         }
         else {
-           const response = await axios.post("/api/check-limit", {
-          email: session?.user?.email, // or userId
-        });
+          const response = await axios.post("/api/check-limit", {
+            email: session?.user?.email, // or userId
+          });
 
-        const { limitReached } = response.data;
+          const { limitReached } = response.data;
 
-        if (limitReached) {
-          toast.error("❌ You’ve reached your daily limit of 5 prompts.");
-          router.push("/"); // ⛔ redirect if over limit
-          return;
-        }
+          if (limitReached) {
+            toast.error("❌ You’ve reached your daily limit of 5 prompts.");
+            router.push("/"); // ⛔ redirect if over limit
+            return;
+          }
 
           init(); // 🧪 fresh generation
         }
       } catch (error: any) {
-          router.push("/"); // ⛔ redirect if over limit
-          toast.error("❌ You’ve reached your daily limit of 5 prompts.");
+        router.push("/"); // ⛔ redirect if over limit
+        toast.error("❌ You’ve reached your daily limit of 5 prompts.");
 
       }
     };
@@ -501,11 +502,11 @@ export default function Builder() {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden md:grid grid-cols-4 gap-2 p-2 h-[calc(100vh-8rem)]">
-        <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 shadow-inner border border-[#2c2c3a] flex flex-col overflow-auto">
-          <h2 className="text-lg font-semibold text-white mb-2">🧠 Steps</h2>
+      <div className="hidden md:grid grid-cols-12 gap-2 p-2 h-[calc(100vh-8rem)]">
+        <div className="col-span-2 bg-[#1a1a1d] rounded-xl p-1 shadow-inner border border-[#2c2c3a] flex flex-col overflow-auto">
+          <h2 className="text-lg font-semibold text-white">🧠 Steps</h2>
           <StepsList steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
-          <div className="mt-4 space-y-2">
+          <div className=" space-y-2">
             <h3 className="text-xs text-gray-400 uppercase mb-1">AI Assistant</h3>
             {loading || !templateSet ? (
               <Loader />
@@ -523,18 +524,19 @@ export default function Builder() {
           </div>
         </div>
 
-        <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 text-white border border-[#2c2c3a] shadow-md overflow-auto scrollbar-hide">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">📁 File Explorer</h2>
-            <Button onClick={handleExportZip}>Export ZIP</Button>
+        <div className="col-span-2 bg-[#1a1a1d] rounded-xl p-2 text-white border border-[#2c2c3a] shadow-md overflow-auto scrollbar-hide">
+          <div className="flex items-center justify-between mb-1  ">
+            <h2 className="text-md -tracking-tighte font-semibold">📁 File Explorer</h2>
+            <Button size='sm' onClick={handleExportZip}>Export ZIP</Button>
           </div>
           <FileExplorer onTabChange={setActiveTab} files={files} onFileSelect={setSelectedFile} />
         </div>
 
-        <div className="col-span-2 rounded-xl p-4 h-full border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col ">
+        <div className="col-span-8 rounded-xl p-2 h-full border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col ">
           <TabView activeTab={activeTab} onTabChange={setActiveTab} />
           <div className="flex-1 mt-2 bg-black rounded-lg overflow-auto p-3 border border-[#2a2a3d]">
-            {activeTab === 'code' && (
+            {/* Code editor (hidden when not active) */}
+            <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
               <CodeEditor
                 file={selectedFile}
                 onFileChange={(updatedFile) => {
@@ -543,34 +545,36 @@ export default function Builder() {
                   localStorage.setItem(`ai-selected-${prompt}`, updatedFile.path);
                 }}
               />
-            )}
-            {activeTab === 'preview' && (
-              <>
-                {!previewReady && (
-                  <div className="mb-2 text-sm text-white">
-                    Installing dependencies... {previewProgress}%
-                    <div className="w-full h-2 bg-gray-700 rounded mt-1">
-                      <div
-                        className="h-2 bg-green-500 rounded"
-                        style={{ width: `${previewProgress}%` }}
-                      />
-                    </div>
+            </div>
+
+            <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '100%' }}>
+              {!previewReady && (
+                <div className="mb-2 text-sm text-white">
+                  Installing dependencies... {previewProgress}%
+                  <div className="w-full h-2 bg-gray-700 rounded mt-1">
+                    <div
+                      className="h-2 bg-green-500 rounded"
+                      style={{ width: `${previewProgress}%` }}
+                    />
                   </div>
-                )}
-                {webcontainer && (
-                  <PreviewFrame
-                    framework={framework}
-                    webContainer={webcontainer}
-                    files={files}
-                    onProgressUpdate={setPreviewProgress}
-                    onReady={() => {
-                      setPreviewProgress(100);
-                      setPreviewReady(true);
-                    }}
-                  />
-                )}
-              </>
-            )}
+                </div>
+              )}
+
+              {webcontainer && (
+                <PreviewFrame
+                  framework={framework}
+                  webContainer={webcontainer}
+                  files={files}
+                  onProgressUpdate={setPreviewProgress}
+                  onReady={() => {
+                    setPreviewProgress(100);
+                    setPreviewReady(true);
+                  }}
+                  activeTab={activeTab}
+                />
+              )}
+            </div>
+
           </div>
         </div>
       </div>
@@ -654,6 +658,7 @@ export default function Builder() {
                       setPreviewProgress(100);
                       setPreviewReady(true);
                     }}
+                    activeTab={activeTab}
                   />
                 )}
               </>

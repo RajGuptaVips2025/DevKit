@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select("prompt modelName user");
+      .select("prompt modelName user framework");
 
     return NextResponse.json({ success: true, data: generations });
   } catch (error) {
