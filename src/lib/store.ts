@@ -15,26 +15,7 @@ interface BuildState {
 let cooldownInterval: NodeJS.Timeout | null = null;
 
 export const useBuildStore = create<BuildState>((set) => {
-  // const startCooldown = (seconds: number) => {
-  //   const endTime = Date.now() + seconds * 1000;
-  //   localStorage.setItem("cooldownEndTime", endTime.toString());
-
-  //   set({ isCooldown: true, cooldownTime: seconds });
-
-  //   const interval = setInterval(() => {
-  //     const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
-
-  //     if (remaining <= 0) {
-  //       clearInterval(interval);
-  //       set({ isCooldown: false, cooldownTime: 0 });
-  //       localStorage.removeItem("cooldownEndTime");
-  //     } else {
-  //       set({ cooldownTime: remaining });
-  //     }
-  //   }, 1000);
-  // };
-
-   const startCooldown = (seconds: number) => {
+    const startCooldown = (seconds: number) => {
     if (cooldownInterval) {
       clearInterval(cooldownInterval);
       cooldownInterval = null;
@@ -60,19 +41,6 @@ export const useBuildStore = create<BuildState>((set) => {
       }
     }, 1000);
   };
-
-  // Check for stored cooldown on load and start if needed
-  // const storedEndTime = localStorage.getItem("cooldownEndTime");
-  // if (storedEndTime) {
-  //   const remaining = Math.max(0, Math.ceil((Number(storedEndTime) - Date.now()) / 1000));
-  //   if (remaining > 0) {
-  //     set({ isCooldown: true, cooldownTime: remaining });
-  //     // Start interval in background
-  //     startCooldown(remaining);
-  //   } else {
-  //     localStorage.removeItem("cooldownEndTime");
-  //   }
-  // }
 
   return {
     prompt: '',
