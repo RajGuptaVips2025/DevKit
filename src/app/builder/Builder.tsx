@@ -55,66 +55,198 @@ export default function Builder() {
   console.log(_llmMessages, _uiPrompts);
 
 
+  // const init = async () => {
+  //   setLoading(true)
+  //   const formData = new FormData();
+  //   // formData.append('prompt', prompt?.trim() || '');
+  //   formData.append('prompt', `${prompt?.trim() || ''} using ${framework?.trim() || ''}`);
+
+  //   if (imageFile) {
+  //     formData.append('image', imageFile);
+  //   }
+
+  //   formData.append('model', model);
+  //   formData.append('framework', framework);
+
+  //   const templateResponse = await axios.post(`/api/template`, formData, {
+  //     headers: { 'Content-Type': 'multipart/form-data' },
+  //   });
+  //   setTemplateSet(true);
+  //   const { prompts, uiPrompts, imageUrl } = templateResponse.data;
+  //   const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({ ...x, status: 'pending' as const }));
+  //   setSteps(parsedInitialSteps);
+  //   setUiPrompt(uiPrompts)
+  //   setLoading(true);
+  //   formData.append("prompts", JSON.stringify(prompts)); // ← exact same data
+  //   formData.append("uiprompt", uiPrompts); // ← new prompt
+  //   formData.append('framework', framework?.trim() || '');
+
+  //   const stepsResponse = await axios.post(`/api/chat`, formData, {
+  //     headers: { 'Content-Type': 'multipart/form-data' },
+  //   });
+  //   setLoading(false);
+
+  //   const finalSteps = [
+  //     ...parsedInitialSteps,
+  //     ...parseXml(stepsResponse.data.response).map((x) => ({ ...x, status: 'pending' as const })),
+  //   ];
+  //   setSteps(finalSteps);
+
+
+  //   setLlmMessages([
+  //     ...prompts.map((p: string) => ({ role: 'user', content: p })),
+  //     { role: 'user', content: prompt! },
+  //     { role: 'assistant', content: stepsResponse.data.response },
+  //   ]); // Saves conversation
+  //   setActiveTab('preview')
+
+  //   localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps)); // Stores steps
+  //   const saveResponse = await axios.post("/api/generation", {
+  //     prompt: prompt?.trim(),
+  //     modelName: model,
+  //     steps: finalSteps,
+  //     output: stepsResponse.data.response,
+  //     files,
+  //     imageUrl,
+  //     framework: framework,
+  //     email: session?.user?.email, // manually pass email
+  //   });
+  //   const generationId = saveResponse.data.generation._id;
+  //   setGetDbId(saveResponse.data.generation._id)
+  //   localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
+  //   // localStorage.setItem(`ai-files-${prompt}`, JSON.stringify([])); // will update when files are built
+  // };
+
   const init = async () => {
-    setLoading(true)
-    const formData = new FormData();
-    // formData.append('prompt', prompt?.trim() || '');
-    formData.append('prompt', `${prompt?.trim() || ''} using ${framework?.trim() || ''}`);
-
-    if (imageFile) {
-      formData.append('image', imageFile);
-    }
-
-    formData.append('model', model);
-    formData.append('framework', framework);
-
-    const templateResponse = await axios.post(`/api/template`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    setTemplateSet(true);
-    const { prompts, uiPrompts, imageUrl } = templateResponse.data;
-    const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({ ...x, status: 'pending' as const }));
-    setSteps(parsedInitialSteps);
-    setUiPrompt(uiPrompts)
     setLoading(true);
-    formData.append("prompts", JSON.stringify(prompts)); // ← exact same data
-    formData.append("uiprompt", uiPrompts); // ← new prompt
-    formData.append('framework', framework?.trim() || '');
 
-    const stepsResponse = await axios.post(`/api/chat`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    setLoading(false);
+    try {
+      const formData = new FormData();
+      const promptValue = `${prompt?.trim() || ''} using ${framework?.trim() || ''}`;
 
-    const finalSteps = [
-      ...parsedInitialSteps,
-      ...parseXml(stepsResponse.data.response).map((x) => ({ ...x, status: 'pending' as const })),
-    ];
-    setSteps(finalSteps);
+      formData.append('prompt', promptValue);
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
 
+      formData.append('model', model);
+      formData.append('framework', framework);
+      formData.append('email', session?.user?.email || '');
 
-    setLlmMessages([
-      ...prompts.map((p: string) => ({ role: 'user', content: p })),
-      { role: 'user', content: prompt! },
-      { role: 'assistant', content: stepsResponse.data.response },
-    ]); // Saves conversation
-    setActiveTab('preview')
+      // 🔹 First API call: Template generation
+      const templateResponse = await axios.post(`/api/template`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
-    localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps)); // Stores steps
-    const saveResponse = await axios.post("/api/generation", {
-      prompt: prompt?.trim(),
-      modelName: model,
-      steps: finalSteps,
-      output: stepsResponse.data.response,
-      files,
-      imageUrl,
-      framework: framework,
-      email: session?.user?.email, // manually pass email
-    });
-    const generationId = saveResponse.data.generation._id;
-    setGetDbId(saveResponse.data.generation._id)
-    localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
-    // localStorage.setItem(`ai-files-${prompt}`, JSON.stringify([])); // will update when files are built
+      setTemplateSet(true);
+
+      const { prompts, uiPrompts, imageUrl } = templateResponse.data;
+
+      const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({
+        ...x,
+        status: 'pending' as const,
+      }));
+
+      setSteps(parsedInitialSteps);
+      setUiPrompt(uiPrompts);
+
+      // prepare for next call
+      setLoading(true);
+      formData.append("prompts", JSON.stringify(prompts));
+      formData.append("uiprompt", uiPrompts);
+      formData.append('framework', framework?.trim() || '');
+
+      // 🔹 Second API call: Chat response generation
+      const stepsResponse = await axios.post(`/api/chat`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (stepsResponse.data?.error && Object.keys(stepsResponse.data.error).length > 0) {
+        throw {
+          isApiError: true,
+          ...stepsResponse.data.error,
+        };
+      }
+
+      const finalSteps = [
+        ...parsedInitialSteps,
+        ...parseXml(stepsResponse.data.response).map((x) => ({
+          ...x,
+          status: 'pending' as const,
+        })),
+      ];
+
+      setSteps(finalSteps);
+      setLlmMessages([
+        ...prompts.map((p: string) => ({ role: 'user', content: p })),
+        { role: 'user', content: prompt! },
+        { role: 'assistant', content: stepsResponse.data.response },
+      ]);
+      setActiveTab('preview');
+      localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps));
+
+      // 🔹 Final API call: Save generation to DB
+      const saveResponse = await axios.post("/api/generation", {
+        prompt: prompt?.trim(),
+        modelName: model,
+        steps: finalSteps,
+        framework: framework,
+        output: stepsResponse.data.response,
+        files,
+        imageUrl,
+        email: session?.user?.email,
+      });
+
+      const generationId = saveResponse.data?.generation?._id;
+      if (!generationId) {
+        throw new Error("Generation ID missing from /api/generation response");
+      }
+
+      setGetDbId(generationId);
+      localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
+
+      localStorage.setItem("lastPromptTime", Date.now().toString());
+
+    } catch (error: any) {
+      console.error("❌ Caught error in init():", error);
+
+      const status = error?.status || error?.response?.status || null;
+
+      if (status) {
+        switch (status) {
+          case 400:
+            toast.error("Bad request. Please check your input and try again.");
+            break;
+          case 401:
+            toast.error("Unauthorized. Please check your API key or login session.");
+            break;
+          case 403:
+            toast.error("Access denied. You don’t have permission to use this model or feature.");
+            break;
+          case 404:
+            toast.error("Requested model or resource not found. Please check model name or API version.");
+            break;
+          case 429:
+            toast.error("Output Quota exceeded. Try later or use different model.");
+            break;
+          case 500:
+          case 503:
+            toast.error("API servers are overloaded. Try again later.");
+            break;
+          default:
+            toast.error("An unexpected error occurred. Please try again.");
+            break;
+        }
+      } else if (error?.isApiError) {
+        toast.error(error.message || "API error occurred.");
+      } else {
+        toast.error("An unknown error occurred. Please check your connection.");
+      }
+
+      router.push('/');
+    } finally {
+      setLoading(false);
+    }
   };
 
 
