@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// import { GoogleGenerativeAI } from "@google/generative-ai";
 import { basePrompt as nodeBasePrompt } from "../defaults/node";
 import { basePrompt as reactBasePrompt } from "../defaults/react";
 import { basePrompt as angularBasePrompt } from "../defaults/angular";
@@ -48,21 +48,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const system = "Return either node, react, or angular based on what you think this project should be. Only return a single word: either 'node', 'react', or 'angular'. Do not return anything extra.";
+    // const system = "Return either node, react, or angular based on what you think this project should be. Only return a single word: either 'node', 'react', or 'angular'. Do not return anything extra.";
 
-    const req = {
-      contents: [
-        { role: "user", parts: [{ text: prompt }] },
-        { role: "user", parts: [{ text: system }] },
-      ],
-    };
+    // const req = {
+    //   contents: [
+    //     { role: "user", parts: [{ text: prompt }] },
+    //     { role: "user", parts: [{ text: system }] },
+    //   ],
+    // };
 
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
+    // const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const result = await model.generateContent(req);
+    // const result = await model.generateContent(req);
 
-    const answer = result.response.text().trim();
+    // const answer = result.response.text().trim();
 
     if (framework.toLowerCase() === "react") {
       return NextResponse.json({

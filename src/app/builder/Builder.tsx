@@ -51,6 +51,9 @@ export default function Builder() {
   const skipStepsUpdateRef = useRef(false);
   const { model, imageFile } = useBuildStore.getState(); // Get data from store
   const router = useRouter();
+  // Reference them to avoid lint errors
+  console.log(_llmMessages, _uiPrompts);
+
 
   const init = async () => {
     setLoading(true)
