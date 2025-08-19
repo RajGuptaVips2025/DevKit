@@ -26,9 +26,8 @@ axios.defaults.withCredentials = true;
 export default function Sidebar() {
   const router = useRouter();
   const { data: session, status } = useSession();
-
   const [history, setHistory] = useState<
-    { _id: string; prompt: string; modelName: string }[] | null
+    { _id: string; prompt: string; modelName: string; framework: "react" | "angular" }[] | null
   >(null);
   const lastUserId = useRef<string | null | undefined>(null);
   const [skip, setSkip] = useState(0);
@@ -511,13 +510,10 @@ export default function Sidebar() {
                   <div className="flex items-center justify-between px-1 py-2 hover:bg-gray-800 rounded-md">
                     <button
                       onClick={() => {
-                        const encodedPrompt = encodeURIComponent(item.prompt);
-                        const encodedModel = encodeURIComponent(
-                          item.modelName || "gemini-2.5-flash-preview-05-20"
-                        );
                         router.push(
-                          `/builder?prompt=${encodedPrompt}&model=${encodedModel}&id=${item._id}`
+                          `/builder?prompt=${encodeURIComponent(item.prompt)}&model=${encodeURIComponent(item.modelName)}&framework=${encodeURIComponent(item.framework ?? 'react')}&id=${item._id}`
                         );
+
                       }}
                       className="flex-1 text-left text-sm text-zinc-300 hover:text-white truncate focus:outline-none"
                       title={item.prompt}

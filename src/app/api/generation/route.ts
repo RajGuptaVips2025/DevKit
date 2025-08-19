@@ -7,7 +7,17 @@ export async function POST(req: NextRequest) {
   await dbConnect();
 
   try {
-    const { email, prompt, modelName, steps, output, files, imageUrl } = await req.json();
+    const body = await req.json();
+
+    // 🔍 Debug log: see exactly what's coming from the frontend
+    console.log("📩 Incoming /api/generation payload:", body);
+
+    const { email, prompt, modelName, framework, steps, output, files, imageUrl } = body;
+
+    // 🚨 Warn if framework is missing or empty
+    if (!framework || framework.trim() === "") {
+      console.warn("⚠️ Framework value is missing or empty in request body!");
+    }
 
     if (!email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,11 +32,14 @@ export async function POST(req: NextRequest) {
       user: user._id,
       prompt,
       modelName,
+      framework, // 👈 This will save only if schema supports it
       steps,
       output,
       imageUrl,
       files,
     });
+
+    console.log("✅ Saved generation:", newGeneration);
 
     return NextResponse.json({ success: true, generation: newGeneration });
   } catch (error) {
