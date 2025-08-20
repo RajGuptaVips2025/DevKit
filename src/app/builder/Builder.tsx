@@ -265,6 +265,7 @@ export default function Builder() {
           `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/upload`,
           { method: "POST", body: cloudForm }
         );
+        //
         const cloudData = await cloudRes.json();
         imageUrl = cloudData.secure_url;
       }
