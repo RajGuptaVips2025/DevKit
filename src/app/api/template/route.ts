@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 // import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -7,26 +8,41 @@ import { basePrompt as reactBasePrompt } from "../defaults/react";
 import { basePrompt as angularBasePrompt } from "../defaults/angular";
 import { BASE_PROMPT, BASE_PROMPT_ANGULAR } from "../prompts";
 import cloudinary from "@/lib/cloudinary";
-import streamifier from "streamifier";
+// import streamifier from "streamifier";
+
+// async function uploadToCloudinary(file: Blob): Promise<string> {
+//   const buffer = Buffer.from(await file.arrayBuffer());
+
+//   return new Promise((resolve, reject) => {
+//     const stream = cloudinary.uploader.upload_stream(
+//       {
+//         // folder: "your-folder-name",
+//         resource_type: "image",
+//       },
+//       (error, result) => {
+//         if (error) return reject(error);
+//         resolve(result?.secure_url || "");
+//       }
+//     );
+
+//     streamifier.createReadStream(buffer).pipe(stream);
+//   });
+// }
 
 async function uploadToCloudinary(file: Blob): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        // folder: "your-folder-name",
-        resource_type: "image",
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result?.secure_url || "");
-      }
-    );
+  const result = await cloudinary.uploader.upload(
+    `data:${file.type};base64,${buffer.toString("base64")}`,
+    {
+      resource_type: "image",
+      // folder: "your-folder-name", // optional
+    }
+  );
 
-    streamifier.createReadStream(buffer).pipe(stream);
-  });
+  return result.secure_url;
 }
+
 
 export async function POST(request: NextRequest) {
   try {
