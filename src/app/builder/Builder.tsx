@@ -186,7 +186,6 @@ export default function Builder() {
     }
   };
 
-
   const fromDB = async () => {
     try {
       const res = await axios.get(`/api/generation/${id}`);
