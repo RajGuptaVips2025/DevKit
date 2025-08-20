@@ -9,41 +9,26 @@ import { basePrompt as reactBasePrompt } from "../defaults/react";
 import { basePrompt as angularBasePrompt } from "../defaults/angular";
 import { BASE_PROMPT, BASE_PROMPT_ANGULAR } from "../prompts";
 import cloudinary from "@/lib/cloudinary";
-// import streamifier from "streamifier";
-
-// async function uploadToCloudinary(file: Blob): Promise<string> {
-//   const buffer = Buffer.from(await file.arrayBuffer());
-
-//   return new Promise((resolve, reject) => {
-//     const stream = cloudinary.uploader.upload_stream(
-//       {
-//         // folder: "your-folder-name",
-//         resource_type: "image",
-//       },
-//       (error, result) => {
-//         if (error) return reject(error);
-//         resolve(result?.secure_url || "");
-//       }
-//     );
-
-//     streamifier.createReadStream(buffer).pipe(stream);
-//   });
-// }
+import streamifier from "streamifier";
 
 async function uploadToCloudinary(file: Blob): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const result = await cloudinary.uploader.upload(
-    `data:${file.type};base64,${buffer.toString("base64")}`,
-    {
-      resource_type: "image",
-      // folder: "your-folder-name", // optional
-    }
-  );
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        // folder: "your-folder-name",
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result?.secure_url || "");
+      }
+    );
 
-  return result.secure_url;
+    streamifier.createReadStream(buffer).pipe(stream);
+  });
 }
-
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,22 +51,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // const system = "Return either node, react, or angular based on what you think this project should be. Only return a single word: either 'node', 'react', or 'angular'. Do not return anything extra.";
-
-    // const req = {
-    //   contents: [
-    //     { role: "user", parts: [{ text: prompt }] },
-    //     { role: "user", parts: [{ text: system }] },
-    //   ],
-    // };
-
-    // const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
-    // const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    // const result = await model.generateContent(req);
-
-    // const answer = result.response.text().trim();
 
     if (framework.toLowerCase() === "react") {
       return NextResponse.json({

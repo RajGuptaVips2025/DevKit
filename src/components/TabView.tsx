@@ -42,20 +42,6 @@ export function TabView({ activeTab, onTabChange, loading  }: TabViewProps) {
 
   return (
     <div className="flex space-x-2 mb-4">
-      {/* {tabs.map((tab) => (
-        <button
-          key={tab.key}
-          onClick={() => handleTabClick(tab.key as any)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-            activeTab === tab.key
-              ? 'bg-gray-700 text-gray-100'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-          }`}
-        >
-          {tab.icon}
-          {tab.label}
-        </button>
-      ))} */}
       {tabs.map((tab) => (
         <button
           key={tab.key}

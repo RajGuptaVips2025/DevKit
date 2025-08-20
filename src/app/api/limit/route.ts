@@ -29,7 +29,7 @@ export async function POST() {
     return NextResponse.json({ allowed: true, remaining: 4 });
   }
 
-  if (count >= 120) {
+  if (count >= 150  ) {
     const timeLeft = 24 * 60 * 60 * 1000 - (now.getTime() - lastTime.getTime());
     return NextResponse.json({ allowed: false, timeLeft });
   }
