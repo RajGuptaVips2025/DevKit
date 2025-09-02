@@ -23,7 +23,6 @@ export async function checkAndUpdatePromptCooldown(email: string) {
   // Update lastCooldownTime only
   user.lastCooldownTime = now;
   await user.save();
-  console.log("Updated cooldown:", user.lastCooldownTime);
 
   return { allowed: true };
 }

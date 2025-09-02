@@ -10,6 +10,9 @@ import { basePrompt as angularBasePrompt } from "../defaults/angular";
 import { BASE_PROMPT, BASE_PROMPT_ANGULAR } from "../prompts";
 import cloudinary from "@/lib/cloudinary";
 import streamifier from "streamifier";
+import dbConnect from "@/dbConfig/dbConfig";
+import { authOptions } from "../auth/[...nextauth]/authOptions";
+import { getServerSession } from "next-auth";
 
 async function uploadToCloudinary(file: Blob): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -32,17 +35,21 @@ async function uploadToCloudinary(file: Blob): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
+
+    await dbConnect();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const formData = await request.formData();
     const prompt = formData.get("prompt") as string | null;
     const imageFile = formData.get("image") as File | null;
     const framework = (formData.get("framework") as string);
 
     let imageUrl = null;
-    console.log(prompt, imageFile)
 
     if (imageFile) {
       imageUrl = await uploadToCloudinary(imageFile);
-      console.log("Uploaded to Cloudinary:", imageUrl);
     }
 
     if (!prompt) {

@@ -23,10 +23,11 @@ export interface IGeneration extends Document {
   imageUrl?: string;
   prompt: string;
   modelName: string;
-  framework: string; // 👈 Added
+  framework: "react" | "angular"; // 👈 strongly typed
   output: string;
   steps?: Step[];
   files?: FileNode[];
+  source?: "ui" | "api" | "regeneration"; // 👈 optional new field
   createdAt: Date;
 }
 
@@ -35,8 +36,8 @@ const FileNodeSchema: Schema<FileNode> = new Schema(
     name: { type: String, required: true },
     type: { type: String, enum: ["file", "folder"], required: true },
     path: { type: String, required: true },
-    content: { type: String }, // optional, for files
-    children: [/* recursive reference, added below */],
+    content: { type: String },
+    children: [],
   },
   { _id: false }
 );
@@ -52,20 +53,26 @@ const GenerationSchema = new Schema<IGeneration>(
     imageUrl: { type: String, default: null },
     prompt: { type: String, required: true },
     modelName: { type: String, required: true },
-    framework: { type: String, enum: ["react", "angular"], required: true }, // 👈 Added enum
+    framework: { type: String, enum: ["react", "angular"], required: true },
     output: { type: String, required: true },
     steps: [
       {
         code: { type: String },
         id: { type: Number, required: true },
-        description: { type: String, default: '' },
-        path: { type: String, default: '' },
+        description: { type: String, default: "" },
+        path: { type: String, default: "" },
         status: { type: String, required: true },
         title: { type: String, required: true },
         type: { type: Number, required: true },
-      }
+      },
     ],
     files: [FileNodeSchema],
+    // 👇 NEW FIELD
+    source: {
+      type: String,
+      enum: ["ui", "api", "regeneration"],
+      default: "ui",
+    },
   },
   { timestamps: true }
 );

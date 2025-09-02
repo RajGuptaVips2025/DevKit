@@ -3,6 +3,8 @@ import dbConnect from "@/dbConfig/dbConfig";
 import UserModel, { IUser } from "@/models/userModel";
 import type { AuthOptions, Session, User } from "next-auth";
 import type { JWT } from "next-auth/jwt";
+import redis from "@/lib/redis";
+import { expireKey, getJson, setJson } from "@/lib/redisHelpers";
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -13,50 +15,82 @@ export const authOptions: AuthOptions = {
   ],
   secret: process.env.NEXTAUTH_SECRET!,
   callbacks: {
-    // ✅ Create user in DB if not exists
     async signIn({ user }: { user: User }) {
       await dbConnect();
 
-      const existingUser = await UserModel.findOne({ email: user.email });
+      let existingUser = await UserModel.findOne({ email: user.email });
       if (!existingUser) {
-        await UserModel.create({
+        existingUser = await UserModel.create({
           name: user.name,
           email: user.email,
         });
       }
 
+      try {
+        await redis.set(
+          `user:${existingUser._id}`,
+          JSON.stringify({
+            id: existingUser._id.toString(),
+            name: existingUser.name,
+            email: existingUser.email,
+          }),
+          { ex: 60 * 5 }
+        );
+      } catch (e) {
+        console.error("Redis error (signIn):", e);
+      }
+
       return true;
     },
 
-    // ✅ Add user ID to JWT (and handle deleted user case)
     async jwt({ token }) {
       await dbConnect();
 
-      const userInDb = await UserModel.findOne<IUser>({ email: token.email });
+      try {
+        const cachedUser = await getJson<{ id: string; name?: string; email?: string }>(`user:${token.id || ""}`);
 
-      if (!userInDb) {
-        // 🔴 Token will still be returned, but without id
-        delete token.id;
-      } else {
-        token.id = userInDb._id.toString(); // ✅ No TS error now
+        if (cachedUser) {
+          const parsed = typeof cachedUser === "string"
+            ? (cachedUser as unknown as { id?: string })
+            : cachedUser;
+
+          if (parsed && (parsed as any).id) {
+            token.id = (parsed as any).id;
+          }
+
+          try {
+            await expireKey(`user:${token.id}`, { ex: 60 * 5 });
+          } catch (e) {
+            console.error(e);
+            await setJson(`user:${token.id}`, parsed, { ex: 60 * 5 });
+          }
+        } else if (token.email) {
+          const userInDb = await UserModel.findOne<IUser>({ email: token.email });
+          if (userInDb) {
+            token.id = userInDb._id.toString();
+            await setJson(
+              `user:${userInDb._id}`,
+              { id: userInDb._id.toString(), name: userInDb.name, email: userInDb.email },
+              { ex: 60 * 5 }
+            );
+          } else {
+            delete token.id;
+          }
+        }
+      } catch (e) {
+        console.error("Redis error (jwt):", e);
       }
 
       return token;
     },
 
-    // ✅ Safely expose user ID in session
     async session({ session, token }: { session: Session; token: JWT }) {
       if (token.id) {
         session.user.id = token.id as string;
-      } else {
-        // Don't return null — this breaks NextAuth's expected types
-        // Instead, just don't set session.user.id
       }
-
       return session;
     },
 
-    // ✅ Safe redirect
     async redirect({ url, baseUrl }) {
       return url.startsWith(baseUrl) ? url : baseUrl;
     },

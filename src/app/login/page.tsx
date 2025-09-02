@@ -8,17 +8,15 @@ export default function LoginPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Redirect if logged in with valid session
   useEffect(() => {
     if (status === "authenticated" && session?.user?.id) {
-      router.replace("/"); // logged in & valid user
+      router.replace("/");
     }
   }, [status, session, router]);
 
-  // Auto logout if session is authenticated but missing user id (means user deleted)
   useEffect(() => {
     if (status === "authenticated" && !session?.user?.id) {
-      signOut(); // force logout
+      signOut(); 
     }
   }, [status, session]);
 
@@ -32,7 +30,7 @@ export default function LoginPage() {
         <button
           onClick={() =>
             signIn("google", {
-              callbackUrl: "/", // Redirect after login
+              callbackUrl: "/", 
             })
           }
           className="w-full py-2 rounded bg-zinc-600 text-white hover:bg-gray-500 transition"
