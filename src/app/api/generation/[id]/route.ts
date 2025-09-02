@@ -8,8 +8,8 @@ import { getServerSession } from "next-auth";
 
 // -------------------- PATCH --------------------
 export async function PATCH(req: NextRequest,
-  //  ctx: any
-  ctx: { params: { id: string }}
+   ctx: any
+  // ctx: { params: { id: string }}
   ) {
   await dbConnect();
 
@@ -21,8 +21,9 @@ export async function PATCH(req: NextRequest,
   // const generationId = ctx.params.id;
   // const { params } = await ctx; // <-- await here
   // const generationId = params.id;
-  const { id: generationId } = await ctx.params; // <- correct destructuring
+  // const { id: generationId } = await ctx.params; // <- correct destructuring
 
+  const generationId = ctx.params.id;
   const { files } = await req.json();
 
   try {
@@ -52,8 +53,8 @@ export async function PATCH(req: NextRequest,
 // -------------------- GET --------------------
 export async function GET(
   _req: NextRequest,
-  // ctx: any
-  ctx: { params: { id: string } }
+  ctx: any
+  // ctx: { params: { id: string } }
 ) {
   await dbConnect();
 
@@ -63,9 +64,9 @@ export async function GET(
   }
 
   const userId = session.user.id;
-  // const generationId = ctx.params.id;
+  const generationId = ctx.params.id;
   // const generationId = ctx.params.id; // <- NO await
-  const { id: generationId } = await ctx.params; // <- correct destructuring
+  // const { id: generationId } = await ctx.params; // <- correct destructuring
 
   if (!generationId || generationId === "undefined") {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
@@ -100,8 +101,8 @@ export async function GET(
 
 // -------------------- DELETE --------------------
 export async function DELETE(_req: NextRequest,
-  // ctx: any
-  ctx: { params: { id: string }}
+  ctx: any
+  // ctx: { params: { id: string }}
   ) {
   await dbConnect();
 
@@ -111,11 +112,11 @@ export async function DELETE(_req: NextRequest,
   }
 
   const userId = session.user.id;
-  // const generationId = ctx.params.id;
+  const generationId = ctx.params.id;
   // Await ctx to get params
   // const { params } = await ctx;
   // const generationId = params.id;
-  const { id: generationId } = await ctx.params; // <- correct destructuring
+  // const { id: generationId } = await ctx.params; // <- correct destructuring
   const userScopedKey = `generation:${userId}:${generationId}`;
   const historyKey = `history:${userId}`;
 
