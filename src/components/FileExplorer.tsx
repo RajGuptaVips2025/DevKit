@@ -6,6 +6,7 @@ interface FileExplorerProps {
   files: FileItem[];
   onFileSelect: (file: FileItem) => void;
   onTabChange: (tab: 'code' | 'preview') => void;
+  loading: boolean; // 👈 new prop
 }
 
 interface FileNodeProps {
@@ -64,18 +65,21 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
   );
 }
 
-export function FileExplorer({ files, onFileSelect, onTabChange }: FileExplorerProps) {
+export function FileExplorer({ files, onFileSelect, onTabChange, loading }: FileExplorerProps) {
   const handleFileClick = (file: FileItem) => {
-    onFileSelect(file);
-    onTabChange("code");
+    if (!loading) { // 👈 prevent clicks when loading
+      onFileSelect(file);
+      onTabChange("code");
+    }
   };
 
   return (
-    <div className="bg-black rounded-lg shadow-lg p-4 h-[76vh] overflow-auto scrollbar-hide">
+    <div className="relative bg-black rounded-lg shadow-lg p-4 h-[76vh] overflow-auto scrollbar-hide">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-100">
-        <FolderTree className="w-5 h-5" />
+        <FolderTree className="w-10 h-5" />
         File Explorer
       </h2>
+
       <div className="space-y-1">
         {files.map((file, index) => (
           <FileNode
@@ -86,6 +90,13 @@ export function FileExplorer({ files, onFileSelect, onTabChange }: FileExplorerP
           />
         ))}
       </div>
+
+      {/* 👇 Overlay Loader */}
+      {loading && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10 rounded-lg">
+          <div className="w-8 h-8 border-4 border-t-transparent border-blue-400 rounded-full animate-spin"></div>
+        </div>
+      )}
     </div>
   );
 }

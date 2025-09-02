@@ -14,14 +14,12 @@ export function CodeEditor({ file, onFileChange  }: CodeEditorProps) {
 
   useEffect(() => {
     if (file) setContent(file.content || '');
-  }, [file?.path]); // ✅ Only update if a different file is selected
+  }, [file?.path]); 
 
-  // Capture the Monaco editor instance
   const handleEditorDidMount: OnMount = (editor) => {
     editorRef.current = editor;
   };
 
-  // Track changes, update local state, and notify parent
   const handleChange = (value: string | undefined) => {
     if (value === undefined) return;
     setContent(value);

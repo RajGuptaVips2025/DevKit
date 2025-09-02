@@ -10,10 +10,11 @@ const dbConnect = async () => {
 
   try {
     await mongoose.connect(process.env.MONGO_URI!, {
-      dbName: "MajorProject", 
+      // dbName: "MajorProject", 
+      dbName: "DevitTest", 
     });
 
-    mongoose.connection.setMaxListeners(20); // Optional: avoid listener warnings
+    mongoose.connection.setMaxListeners(20); 
 
     mongoose.connection.on("connected", () => {
       console.log("✅ Mongoose connected successfully");

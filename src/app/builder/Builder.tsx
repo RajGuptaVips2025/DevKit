@@ -6,9 +6,7 @@ import { CodeEditor } from '../../components/CodeEditor';
 import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
-import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { StepsList } from '@/components/StepsList';
 import { Loader } from '@/components/Loader';
@@ -21,19 +19,22 @@ import { injectRuntimeErrorHandler } from '../utils/injectRuntimeErrorHandler';
 import { useSession } from "next-auth/react";
 import { CheckCircle, Circle, Clock } from 'lucide-react';
 import { useBuildStore } from '@/lib/store';
-import { useRouter } from "next/navigation"; // Add router import
 import toast from 'react-hot-toast';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 
-export default function Builder() {
+type BuilderProps = {
+  id?: string;
+};
+
+export default function Builder({ id }: BuilderProps) {
 
   const hydratedRef = useRef(false);
   const searchParams = useSearchParams();
   const prompt = decodeURIComponent(searchParams.get('prompt') || '');
-  const framework = decodeURIComponent(searchParams.get('framework') || '');
-  // const modelParam = searchParams.get("model") || "gemini-2.5-flash-preview-05-20";
-  const id = searchParams.get("id");
-  const [userPrompt, setPrompt] = useState('');
-  const [llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const params = useParams();
+  const effectiveId = id ?? params?.id ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [templateSet, setTemplateSet] = useState(false);
   const webcontainer = useWebContainer();
@@ -46,196 +47,188 @@ export default function Builder() {
   const [previewReady, setPreviewReady] = useState(false);
   const [editedPaths, setEditedPaths] = useState<Set<string>>(new Set());
   const [getDbId, setGetDbId] = useState<string>("")
-  const [uiPrompts, setUiPrompt] = useState<string>("")
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_uiPrompts, setUiPrompt] = useState<string>("")
+  const [builderpromptValue, setBuilderPromptValue] = useState<string>("");
   const { data: session } = useSession();
   const skipStepsUpdateRef = useRef(false);
-  const { model, imageFile, startCooldown } = useBuildStore.getState(); // Get data from store
-  const router = useRouter(); // Initialize router
 
-
-  const handleSendMessage = async () => {
-    const newMessage = { role: 'user' as const, content: userPrompt };
-    setLoading(true);
-    setPrompt('');
-
-    try {
-      const formData = new FormData();
-      formData.append("prompt", userPrompt);
-      formData.append("prompts", JSON.stringify(llmMessages));
-      formData.append("uiprompt", uiPrompts);
-      formData.append("model", model);
-
-      const stepsResponse = await axios.post(`/api/chat`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      const assistantMessage = {
-        role: 'assistant' as const,
-        content: stepsResponse.data.response,
-      };
-
-      setLlmMessages((prev) => [...prev, newMessage]);
-      setLlmMessages((prev) => [...prev, assistantMessage]);
-
-      const parsedSteps = parseXml(stepsResponse.data.response).map((step) => ({
-        ...step,
-        status: 'pending' as const,
-      }));
-
-      setSteps((prevSteps) => [...prevSteps, ...parsedSteps]);
-      console.log(steps)
-
-    } catch (error) {
-      console.error('Error sending message:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    prompt: storePrompt,
+    model: storeModel,
+    framework: storeFramework,
+    imageFile: storeImageFile,
+  } = useBuildStore();
+  const router = useRouter();
 
   const init = async () => {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      // formData.append('prompt', prompt?.trim() || '');
-      formData.append('prompt', `${prompt?.trim() || ''} using ${framework?.trim() || ''}`);
-      if (imageFile) {
-        formData.append('image', imageFile);
+      const storedInit = typeof window !== 'undefined' ? sessionStorage.getItem('ai-prompt-init') : null;
+      const storedToken = typeof window !== 'undefined' ? sessionStorage.getItem('ai-prompt-token') : null;
+
+      if ((!storePrompt || storePrompt.trim() === '') && !storeImageFile) {
+        toast.error('Generation blocked: please use the input box and click Generate.', {duration: 4000});
+        router.push('/');
+        return;
+      }
+      if (!storedInit || !storedToken) {
+        toast.error('Generation blocked: please use the input box and click Generate.', {duration: 4000});
+        router.push('/');
+        return;
       }
 
-      formData.append('model', model);
-      formData.append('framework', framework);
+      const formData = new FormData();
+      const promptValue = `${storePrompt?.trim() || ''} using ${storeFramework?.trim() || ''}`;
+      formData.append('prompt', promptValue);
+      if (storeImageFile) formData.append('image', storeImageFile as File);
+      formData.append('model', storeModel);
+      formData.append('framework', storeFramework);
       formData.append('email', session?.user?.email || '');
 
-      // 🔹 First API call: Template generation
-      const templateResponse = await axios.post(`/api/template`, formData, {
+      const templateResponse = await axios.post('/api/template', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       setTemplateSet(true);
-
       const { prompts, uiPrompts, imageUrl } = templateResponse.data;
-      const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({
-        ...x,
-        status: 'pending' as const,
-      }));
-
+      const parsedInitialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({ ...x, status: 'pending' as const }));
       setSteps(parsedInitialSteps);
       setUiPrompt(uiPrompts);
 
-      // formData.append('prompts', JSON.stringify(prompts));
-      // formData.append('uiprompt', uiPrompts);
-      setLoading(true);
-      formData.append("prompts", JSON.stringify(prompts)); // ← exact same data
-      formData.append("uiprompt", uiPrompts); // ← new prompt
-      formData.append('framework', framework?.trim() || '');
+      // prepare for chat call
+      formData.append('prompts', JSON.stringify(prompts));
+      formData.append('uiprompt', uiPrompts);
+      formData.append('framework', storeFramework?.trim() || '');
 
-      // 🔹 Second API call: Chat response generation
-      const stepsResponse = await axios.post(`/api/chat`, formData, {
+      // chat call
+      const stepsResponse = await axios.post('/api/chat', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      console.log(stepsResponse.data)
-      if (stepsResponse.data?.error) {
-        // Throw an error object that your catch can handle
-        throw {
-          isApiError: true,
-          ...stepsResponse.data.error,  // spread status, statusText, etc.
-        };
+
+      if (stepsResponse.data?.error && Object.keys(stepsResponse.data.error).length > 0) {
+        throw { isApiError: true, ...stepsResponse.data.error };
       }
+
       const finalSteps = [
         ...parsedInitialSteps,
-        ...parseXml(stepsResponse.data.response).map((x) => ({
-          ...x,
-          status: 'pending' as const,
-        })),
+        ...parseXml(stepsResponse.data.response).map((x) => ({ ...x, status: 'pending' as const })),
       ];
 
       setSteps(finalSteps);
       setLlmMessages([
         ...prompts.map((p: string) => ({ role: 'user', content: p })),
-        { role: 'user', content: prompt! },
+        { role: 'user', content: storePrompt! },
         { role: 'assistant', content: stepsResponse.data.response },
       ]);
-
       setActiveTab('preview');
-      localStorage.setItem(`ai-steps-${prompt}`, JSON.stringify(finalSteps));
 
-      // 🔹 Final API call: Save generation to DB
-      const saveResponse = await axios.post("/api/generation", {
-        prompt: prompt?.trim(),
-        modelName: model,
+      // save to DB (same as before), pass `source: 'ui'` so server accepts it
+      const saveResponse = await axios.post('/api/generation', {
+        prompt: storePrompt?.trim(),
+        modelName: storeModel,
         steps: finalSteps,
+        framework: storeFramework,
         output: stepsResponse.data.response,
-        files,
+        files: files.length > 0 ? files : undefined,
         imageUrl,
         email: session?.user?.email,
+        source: 'ui',
       });
 
-      const generationId = saveResponse.data.generation._id;
+      const generationId = saveResponse.data?.generation?._id;
+      if (!generationId) throw new Error('Generation ID missing');
+
+      // router.replace(`/builder/${generationId}`);
       setGetDbId(generationId);
-      localStorage.setItem(`ai-generation-id-${prompt}`, generationId);
-      // localStorage.setItem(`ai-files-${prompt}`, JSON.stringify([])); // optional
+      window.history.replaceState(null, "", `/builder/${generationId}`);
+      sessionStorage.removeItem('ai-prompt-init');
+      localStorage.removeItem('ai-prompt-entered'); // ✅ clear entered prompt
+      localStorage.setItem('lastPromptTime', Date.now().toString());
+    }
+    catch (error: any) {
+      console.error("❌ Caught error in init():", error);
 
-      // ✅ Cooldown starts after successful generation
-      startCooldown(60);
-      localStorage.setItem("lastPromptTime", Date.now().toString());
-    } catch (error: any) {
-      console.error('Error during init:', error.status);
+      const status = error?.status || error?.response?.status || null;
 
-      if (error) {
-        // const axiosError = error as AxiosError<{ error: string; remainingSeconds?: number }>;
-        console.log("in catch block")
-        const status = error.status;
-
+      if (status) {
         switch (status) {
           case 400:
-            //alert("Bad request. Please check your input and try again.");
-            toast.error(`Bad request. Please check your input and try again.`);
+            alert("Bad request. Please check your input and try again.");
+            router.push("/");
             break;
-
           case 401:
-            //alert("Unauthorized. Please check your API key or login session.");
-            toast.error(`Unauthorized. Please check your API key or login session.`);
-
+            alert("Unauthorized. Please check your API key or login session.");
+            router.push("/");
             break;
-
           case 403:
-            //alert("Access denied. You don’t have permission to use this model or feature.");
-            toast.error(`Access denied. You don’t have permission to use this model or feature.`);
-
+            alert("Access denied. You don’t have permission to use this model. Try again later or use a different model.");
+            router.push("/");
             break;
-
           case 404:
-            //alert("Requested model or resource not found. Please check model name or API version.");
-            toast.error(`Requested model or resource not found. Please check model name or API version.`);
-
+            alert("Requested model or resource not found. It may be unavailable. Try again later or use a different model.");
+            router.push("/");
             break;
-
-          case 429: {
-            toast.error(`Output Quota exceeded for this API method. Please try again later or try using different model`);
+          case 429:
+            alert("Output Quota exceeded. Try again later or use a different model.");
+            router.push("/");
             break;
-          }
-
           case 500:
-            toast.error(`API servers are overloaded or temporarily down.Try using different model or try after a moment`);
-            break;
-
           case 503:
-            toast.error(`API servers are overloaded or temporarily down.Try using different model or try after a moment`);
+            alert("API servers are overloaded. Try again later or use a different model.");
+            router.push("/");
             break;
-
           default:
-            toast.error(`An unexpected error occurred. Please try again.`);
+            alert("An unexpected error occurred. Try again later or use a different model.");
+            router.push("/");
             break;
         }
+      } else if (error?.isApiError) {
+        alert(error.message || "API error occurred.");
+        router.push("/");
       } else {
-        toast.error("An unknown error occurred. Please check your connection or try again.");
+        alert("An unknown error occurred. Please check your connection.");
+        router.push("/");
       }
-
-      router.push('/'); // ✅ Redirect to home on error
     }
+    // catch (error: any) {
+    //   console.error('❌ Caught error in init():', error);
+
+    //   const status = error?.status || error?.response?.status || null;
+
+    //   if (status) {
+    //     switch (status) {
+    //       case 400:
+    //         toast.error("Bad request. Please check your input and try again.", { duration: 4000 });
+    //         break;
+    //       case 401:
+    //         toast.error("Unauthorized. Please check your API key or login session.", { duration: 4000 });
+    //         break;
+    //       case 403:
+    //         toast.error("Access denied. You don’t have permission to use this model. Try again later or use a different model.", { duration: 4000 });
+    //         break;
+    //       case 404:
+    //         toast.error("Requested model or resource not found may be unavailable. Try again later or use a different model.", { duration: 4000 });
+    //         break;
+    //       case 429:
+    //         toast.error("Output Quota exceeded. Try again later or use a different model.", { duration: 4000 });
+    //         break;
+    //       case 500:
+    //       case 503:
+    //         toast.error("API servers are overloaded. Try again later or use a different model.", { duration: 4000 });
+    //         break;
+    //       default:
+    //         toast.error("An unexpected error occurred. Try again later or use a different model.", { duration: 4000 });
+    //         break;
+    //     }
+    //   } else if (error?.isApiError) {
+    //     toast.error(error.message || "API error occurred.", { duration: 4000 });
+    //   } else {
+    //     toast.error("An unknown error occurred. Please check your connection.", { duration: 4000 });
+    //   }
+    //   router.push('/');
+    // } 
     finally {
       setLoading(false);
     }
@@ -243,17 +236,16 @@ export default function Builder() {
 
   const fromDB = async () => {
     try {
-      const res = await axios.get(`/api/generation/${id}`);
+      const res = await axios.get(`/api/generation/${effectiveId}`);
       const data = res.data;
 
-      if (data.generation.files) {
+      if (data.generation.files?.length > 0) {
         setFiles(data.generation.files);
         setTemplateSet(true);
+        setBuilderPromptValue(data.generation.prompt);
       }
 
       if (data.generation.steps) {
-        localStorage.setItem(`ai-steps-${data.generation.prompt}`, JSON.stringify(data.generation.steps));
-        localStorage.setItem(`ai-generation-id-${data.generation.prompt}`, data.generation._id);
         setSteps(
           data.generation.steps.map((s: any) => ({
             ...s,
@@ -266,7 +258,6 @@ export default function Builder() {
         setEditedPaths(new Set(data.editedPaths));
       }
       if (data.selectedPath) {
-        // ✅ Explicitly typed recursive function
         const findFile = (items: FileItem[]): FileItem | null => {
           for (const item of items) {
             if (item.path === data.selectedPath) return item;
@@ -284,53 +275,39 @@ export default function Builder() {
     }
     catch (err) {
       console.error("❌ Failed to fetch from DB:", err);
-      init(); // fallback if DB call fails
+      init();
     }
   };
 
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-
-    const cachedSteps = localStorage.getItem(`ai-steps-${prompt}`);
-    const cachedFiles = localStorage.getItem(`ai-files-${prompt}`);
-    const selectedPath = localStorage.getItem(`ai-selected-${prompt}`);
-    const isGenerated = localStorage.getItem(`ai-generated-${prompt}`) === 'true';
-    const cachedEditedPaths = localStorage.getItem(`ai-edited-${prompt}`);
-
-    if (cachedEditedPaths) {
-      setEditedPaths(new Set(JSON.parse(cachedEditedPaths)));
-    }
-    if (cachedSteps && cachedFiles && isGenerated) {
-      setSteps(JSON.parse(cachedSteps));
-      const parsedFiles: FileItem[] = JSON.parse(cachedFiles);
-      setFiles(parsedFiles);
-      setTemplateSet(true);
-
-      if (selectedPath) {
-        const findFile = (items: FileItem[]): FileItem | null => {
-          for (const item of items) {
-            if (item.path === selectedPath) return item;
-            if (item.type === "folder" && item.children) {
-              const result = findFile(item.children);
-              if (result) return result;
-            }
+    const checkLimit = async () => {
+      try {
+        if (effectiveId) {
+          skipStepsUpdateRef.current = true;
+          fromDB();
+        } else {
+          const response = await axios.post("/api/limit", {
+            email: session?.user?.email,
+          });
+          const { limitReached } = response.data;
+          if (limitReached) {
+            toast.error("❌ You’ve reached your daily limit of 5 prompts.");
+            router.push("/");
+            return;
           }
-          return null;
-        };
 
-        const selected = findFile(parsedFiles);
-        if (selected) setSelectedFile(selected);
+
+          init();
+        }
+      } catch (error: any) {
+        router.push("/");
+        toast.error("❌ You’ve reached your daily limit of 5 prompts.", error);
       }
-    }
-    else if (id) {
-      skipStepsUpdateRef.current = true;
-      fromDB(); // ✅ call your DB fallback
-    }
-    else {
-      init(); // 🧪 fresh generation
-    }
-  }, [prompt, id]);
+    };
+    checkLimit();
+  }, [prompt, effectiveId]);
 
   useEffect(() => {
     if (skipStepsUpdateRef.current) return;
@@ -398,16 +375,9 @@ export default function Builder() {
             status: 'completed',
           }))
         );
-
-
-
-        localStorage.setItem(`ai-files-${prompt}`, JSON.stringify(injectedFiles));
-        localStorage.setItem(`ai-generated-${prompt}`, 'true');
       }
     };
-
-    runStepsUpdate(); // ✅ Call the async function
-
+    runStepsUpdate();
   }, [steps]);
 
   useEffect(() => {
@@ -427,8 +397,7 @@ export default function Builder() {
   }, [getDbId])
 
 
-  useEffect(() => { // Mount files into WebContainer
-    // Recursively converts your internal file tree to a webcontainer.mount() compatible structure.
+  useEffect(() => {
     const createMountStructure = (files: FileItem[]): Record<string, any> => {
       const mountStructure: Record<string, any> = {};
       const processFile = (file: FileItem, isRootFolder: boolean): any => {
@@ -459,25 +428,18 @@ export default function Builder() {
       files.forEach((file) => processFile(file, true));
       return mountStructure;
     };
-
-    // Mounts the files inside a virtual environment that supports previewing/running code.
     const mountStructure = createMountStructure(files);
     webcontainer?.mount(mountStructure);
   }, [files, webcontainer]);
 
-
-  // 1) A recursive updater that returns a new file tree
-  // Recursively updates one file’s content in the file tree based on its path.
   function updateFileContent(
     items: FileItem[],
     updated: FileItem
   ): FileItem[] {
     return items.map(item => {
       if (item.type === 'file' && item.path === updated.path) {
-        // Replace the file node
         return { ...item, content: updated.content };
       } else if (item.type === 'folder' && item.children) {
-        // Recurse into folders
         return {
           ...item,
           children: updateFileContent(item.children, updated),
@@ -507,44 +469,48 @@ export default function Builder() {
     saveAs(content, `${prompt || 'project'}-export.zip`);
   };
 
-  const handleCodeChange = async (updatedFile: FileItem) => {
 
-    // 1. Update file in state
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const DEBOUNCE_DELAY = 4000; // 3 seconds
+
+  const handleCodeChange = (updatedFile: FileItem) => {
+    if (files.length === 0) {
+      console.warn("⚠️ Skipping PATCH because file tree is empty");
+      return;
+    }
+
+    // 1. Update file in state immediately (instant feedback)
     const updated = updateFileContent(files, updatedFile);
     setFiles(updated);
 
-    // 2. Update edited paths
-    setEditedPaths((prev) => {
+    // 2. Track edited paths
+    setEditedPaths(prev => {
       const newSet = new Set(prev);
       newSet.add(updatedFile.path);
-      localStorage.setItem(`ai-edited-${prompt}`, JSON.stringify([...newSet]));
       return newSet;
     });
 
-    // 3. Store updated files in localStorage
-    localStorage.setItem(`ai-files-${prompt}`, JSON.stringify(updated));
-
-    // 4. Update backend with full file tree, including all file properties
-    const generationId = localStorage.getItem(`ai-generation-id-${prompt}`);
-
-    if (!generationId) return;
-
-    try {
-      await axios.patch(`/api/generation/${generationId}`, {
-        files: updated,  // send the full updated file tree (with name, path, type, content, children if folder)
-      });
-    } catch (err) {
-      console.error("❌ Failed to update code in DB", err);
+    // 3. Debounce backend sync
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
     }
-  };
 
-  if (!prompt) {
-    return (
-      <div className="text-white text-center p-4">
-        No prompt provided in URL. Please use <code>?prompt=your_text</code> in the address bar.
-      </div>
-    );
-  }
+    debounceTimer.current = setTimeout(async () => {
+      const generationId = getDbId || effectiveId;
+      if (!generationId) {
+        console.warn("⚠️ No generationId found, skipping backend sync");
+        return;
+      }
+
+      try {
+        await axios.patch(`/api/generation/${generationId}`, {
+          files: updated,
+        });
+      } catch (err) {
+        console.error("❌ Failed to update code in DB", err);
+      }
+    }, DEBOUNCE_DELAY);
+  };
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
@@ -554,83 +520,82 @@ export default function Builder() {
       </div>
 
       <div className="px-4">
-        <p className="text-sm text-white mt-1 italic">Prompt: {prompt}</p>
+        <p className="text-sm text-white mt-1 italic">Prompt: {!effectiveId ? storePrompt : builderpromptValue}</p>
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden md:grid grid-cols-4 gap-2 p-2 h-[calc(100vh-8rem)]">
-        <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 shadow-inner border border-[#2c2c3a] flex flex-col overflow-auto">
+      <div className="hidden md:flex gap-2 p-2 h-[calc(100vh-8rem)]">
+        <div className="w-[20%] bg-[#1a1a1d] rounded-xl p-4 shadow-inner border border-[#2c2c3a] flex flex-col overflow-auto">
           <h2 className="text-lg font-semibold text-white mb-2">🧠 Steps</h2>
           <StepsList steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
-          <div className="mt-4 space-y-2">
-            <h3 className="text-xs text-gray-400 uppercase mb-1">AI Assistant</h3>
-            {loading || !templateSet ? (
-              <Loader />
-            ) : (
-              <div className="flex space-x-2 items-center mt-2">
-                <Textarea
-                  value={userPrompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="What do you want to build?"
-                  className="flex-1 bg-[#2a2a3d] text-white border border-[#3b3b4f] placeholder:text-gray-500 resize-none"
-                />
-                <Button onClick={handleSendMessage}>Send</Button>
-              </div>
-            )}
+          <div className="space-y-2">
+            {loading || !templateSet ? <Loader /> : ""}
           </div>
         </div>
 
-        <div className="col-span-1 bg-[#1a1a1d] rounded-xl p-4 text-white border border-[#2c2c3a] shadow-md overflow-auto scrollbar-hide">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">📁 File Explorer</h2>
-            <Button onClick={handleExportZip}>Export ZIP</Button>
+        {/* File Explorer - 20% width */}
+        <div className="w-[20%] bg-[#1a1a1d] rounded-xl p-2 text-white border border-[#2c2c3a] shadow-md overflow-auto scrollbar-hide">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-md -tracking-tighte font-semibold">📁 File Explorer</h2>
+            <Button
+              onClick={!loading ? handleExportZip : undefined}
+              className={`group relative flex items-center gap-2
+                ${loading ? "opacity-50 cursor-not-allowed pointer-events-auto" : ""}`}
+            >
+              Export ZIP
+            </Button>
           </div>
-          <FileExplorer onTabChange={setActiveTab} files={files} onFileSelect={setSelectedFile} />
+          <FileExplorer onTabChange={setActiveTab} files={files} onFileSelect={setSelectedFile} loading={loading} />
         </div>
 
-        <div className="col-span-2 rounded-xl p-4 h-full border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col ">
-          <TabView activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Code / Preview - 60% width */}
+        <div className="w-[60%] rounded-xl p-2 h-full border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col">
+          <TabView
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              if (!loading || tab !== 'preview') {
+                setActiveTab(tab);
+              }
+            }}
+            loading={loading}
+          />
           <div className="flex-1 mt-2 bg-black rounded-lg overflow-auto p-3 border border-[#2a2a3d]">
-            {activeTab === 'code' && (
+            <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
               <CodeEditor
                 file={selectedFile}
                 onFileChange={(updatedFile) => {
                   handleCodeChange(updatedFile);
                   setSelectedFile(updatedFile);
-                  localStorage.setItem(`ai-selected-${prompt}`, updatedFile.path);
                 }}
               />
-            )}
-            {activeTab === 'preview' && (
-              <>
-                {!previewReady && (
-                  <div className="mb-2 text-sm text-white">
-                    Installing dependencies... {previewProgress}%
-                    <div className="w-full h-2 bg-gray-700 rounded mt-1">
-                      <div
-                        className="h-2 bg-green-500 rounded"
-                        style={{ width: `${previewProgress}%` }}
-                      />
-                    </div>
+            </div>
+            <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '100%' }}>
+              {!previewReady && (
+                <div className="mb-2 text-sm text-white">
+                  Installing dependencies... {previewProgress}%
+                  <div className="w-full h-2 bg-gray-700 rounded mt-1">
+                    <div className="h-2 bg-green-500 rounded" style={{ width: `${previewProgress}%` }} />
                   </div>
-                )}
-                {webcontainer && (
-                  <PreviewFrame
-                    framework={framework}
-                    webContainer={webcontainer}
-                    files={files}
-                    onProgressUpdate={setPreviewProgress}
-                    onReady={() => {
-                      setPreviewProgress(100);
-                      setPreviewReady(true);
-                    }}
-                  />
-                )}
-              </>
-            )}
+                </div>
+              )}
+              {webcontainer && (
+                <PreviewFrame
+                  framework={storeFramework}
+                  webContainer={webcontainer}
+                  files={files}
+                  onProgressUpdate={setPreviewProgress}
+                  onReady={() => {
+                    setPreviewProgress(100);
+                    setPreviewReady(true);
+                  }}
+                  activeTab={activeTab}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
+
 
       {/* Mobile Tab Layout */}
       <div className="block md:hidden p-2 h-[calc(100vh-8rem)]">
@@ -674,6 +639,7 @@ export default function Builder() {
                   setActiveTab('code');
                 }}
                 onTabChange={setActiveTab}
+                loading={loading}
               />
             )}
 
@@ -683,7 +649,6 @@ export default function Builder() {
                 onFileChange={(updatedFile) => {
                   handleCodeChange(updatedFile);
                   setSelectedFile(updatedFile);
-                  localStorage.setItem(`ai-selected-${prompt}`, updatedFile.path);
                 }}
               />
             )}
@@ -703,7 +668,7 @@ export default function Builder() {
                 )}
                 {webcontainer && (
                   <PreviewFrame
-                    framework={framework}
+                    framework={storeFramework}
                     webContainer={webcontainer}
                     files={files}
                     onProgressUpdate={setPreviewProgress}
@@ -711,6 +676,7 @@ export default function Builder() {
                       setPreviewProgress(100);
                       setPreviewReady(true);
                     }}
+                    activeTab={activeTab}
                   />
                 )}
               </>
@@ -721,3 +687,23 @@ export default function Builder() {
     </div>
   );
 }
+
+
+// useEffect(() => {
+//   const fetchGeneration = async () => {
+//     if (!effectiveId) return;
+//     try {
+//       const res = await axios.get(`/api/generation/${effectiveId}`);
+//       setGetDbId(res.data.generation._id);
+
+//       if (res.data.generation.files?.length > 0) {
+//         setFiles(res.data.generation.files);
+//       }
+//     } catch (err) {
+//       console.error("❌ Failed to fetch generation", err);
+//     }
+//   };
+
+//   fetchGeneration();
+//   console.log("fetchGeneration is called");
+// }, [effectiveId]);
