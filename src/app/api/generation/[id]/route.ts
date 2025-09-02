@@ -7,7 +7,10 @@ import { authOptions } from "../../auth/[...nextauth]/authOptions";
 import { getServerSession } from "next-auth";
 
 // -------------------- PATCH --------------------
-export async function PATCH(req: NextRequest, ctx: any) {
+export async function PATCH(req: NextRequest,
+  //  ctx: any
+  ctx: { params: { id: string }}
+  ) {
   await dbConnect();
 
   const session = await getServerSession(authOptions);
@@ -15,7 +18,11 @@ export async function PATCH(req: NextRequest, ctx: any) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const generationId = ctx.params.id;
+  // const generationId = ctx.params.id;
+  // const { params } = await ctx; // <-- await here
+  // const generationId = params.id;
+  const { id: generationId } = await ctx.params; // <- correct destructuring
+
   const { files } = await req.json();
 
   try {
@@ -43,7 +50,11 @@ export async function PATCH(req: NextRequest, ctx: any) {
 }
 
 // -------------------- GET --------------------
-export async function GET(_req: NextRequest, ctx: any) {
+export async function GET(
+  _req: NextRequest,
+  // ctx: any
+  ctx: { params: { id: string } }
+) {
   await dbConnect();
 
   const session = await getServerSession(authOptions);
@@ -52,7 +63,9 @@ export async function GET(_req: NextRequest, ctx: any) {
   }
 
   const userId = session.user.id;
-  const generationId = ctx.params.id;
+  // const generationId = ctx.params.id;
+  // const generationId = ctx.params.id; // <- NO await
+  const { id: generationId } = await ctx.params; // <- correct destructuring
 
   if (!generationId || generationId === "undefined") {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
@@ -86,7 +99,10 @@ export async function GET(_req: NextRequest, ctx: any) {
 }
 
 // -------------------- DELETE --------------------
-export async function DELETE(_req: NextRequest, ctx: any) {
+export async function DELETE(_req: NextRequest,
+  // ctx: any
+  ctx: { params: { id: string }}
+  ) {
   await dbConnect();
 
   const session = await getServerSession(authOptions);
@@ -95,7 +111,11 @@ export async function DELETE(_req: NextRequest, ctx: any) {
   }
 
   const userId = session.user.id;
-  const generationId = ctx.params.id;
+  // const generationId = ctx.params.id;
+  // Await ctx to get params
+  // const { params } = await ctx;
+  // const generationId = params.id;
+  const { id: generationId } = await ctx.params; // <- correct destructuring
   const userScopedKey = `generation:${userId}:${generationId}`;
   const historyKey = `history:${userId}`;
 
@@ -119,24 +139,53 @@ export async function DELETE(_req: NextRequest, ctx: any) {
       user: deleted.user.toString(),
     });
 
-    try {
+
+        try {
       if (typeof (redis as any).multi === "function") {
         const txn = (redis as any).multi();
         txn.lrem(historyKey, 0, listItem);
+        // txn.del(generationKey);
         txn.del(userScopedKey);
-        if (typeof txn.exec === "function") await txn.exec();
-      } else if (typeof (redis as any).pipeline === "function") {
+
+        if (typeof txn.exec === "function") {
+          await txn.exec();
+        } else {
+          await txn;
+        }
+      }
+      else if (typeof (redis as any).pipeline === "function") {
         const p = (redis as any).pipeline();
         p.lrem(historyKey, 0, listItem);
+        // p.del(generationKey);
         p.del(userScopedKey);
         await p.exec();
-      } else {
+      }
+      else {
         await (redis as any).lrem(historyKey, 0, listItem);
+        // await (redis as any).del(generationKey);
         await (redis as any).del(userScopedKey);
       }
     } catch (redisErr) {
       console.error("⚠️ Redis deletion failed (non-fatal):", redisErr);
     }
+    // try {
+    //   if (typeof (redis as any).multi === "function") {
+    //     const txn = (redis as any).multi();
+    //     txn.lrem(historyKey, 0, listItem);
+    //     txn.del(userScopedKey);
+    //     if (typeof txn.exec === "function") await txn.exec();
+    //   } else if (typeof (redis as any).pipeline === "function") {
+    //     const p = (redis as any).pipeline();
+    //     p.lrem(historyKey, 0, listItem);
+    //     p.del(userScopedKey);
+    //     await p.exec();
+    //   } else {
+    //     await (redis as any).lrem(historyKey, 0, listItem);
+    //     await (redis as any).del(userScopedKey);
+    //   }
+    // } catch (redisErr) {
+    //   console.error("⚠️ Redis deletion failed (non-fatal):", redisErr);
+    // }
 
     return NextResponse.json({ success: true, message: "Generation deleted from Mongo & Redis (attempted)." }, { status: 200 });
   } catch (err) {
@@ -322,34 +371,34 @@ export async function DELETE(_req: NextRequest, ctx: any) {
 //       user: deleted.user.toString(),
 //     });
 
-//     try {
-//       if (typeof (redis as any).multi === "function") {
-//         const txn = (redis as any).multi();
-//         txn.lrem(historyKey, 0, listItem);
-//         // txn.del(generationKey);
-//         txn.del(userScopedKey);
+    // try {
+    //   if (typeof (redis as any).multi === "function") {
+    //     const txn = (redis as any).multi();
+    //     txn.lrem(historyKey, 0, listItem);
+    //     // txn.del(generationKey);
+    //     txn.del(userScopedKey);
 
-//         if (typeof txn.exec === "function") {
-//           await txn.exec();
-//         } else {
-//           await txn;
-//         }
-//       }
-//       else if (typeof (redis as any).pipeline === "function") {
-//         const p = (redis as any).pipeline();
-//         p.lrem(historyKey, 0, listItem);
-//         // p.del(generationKey);
-//         p.del(userScopedKey);
-//         await p.exec();
-//       }
-//       else {
-//         await (redis as any).lrem(historyKey, 0, listItem);
-//         // await (redis as any).del(generationKey);
-//         await (redis as any).del(userScopedKey);
-//       }
-//     } catch (redisErr) {
-//       console.error("⚠️ Redis deletion failed (non-fatal):", redisErr);
-//     }
+    //     if (typeof txn.exec === "function") {
+    //       await txn.exec();
+    //     } else {
+    //       await txn;
+    //     }
+    //   }
+    //   else if (typeof (redis as any).pipeline === "function") {
+    //     const p = (redis as any).pipeline();
+    //     p.lrem(historyKey, 0, listItem);
+    //     // p.del(generationKey);
+    //     p.del(userScopedKey);
+    //     await p.exec();
+    //   }
+    //   else {
+    //     await (redis as any).lrem(historyKey, 0, listItem);
+    //     // await (redis as any).del(generationKey);
+    //     await (redis as any).del(userScopedKey);
+    //   }
+    // } catch (redisErr) {
+    //   console.error("⚠️ Redis deletion failed (non-fatal):", redisErr);
+    // }
 
 //     return NextResponse.json(
 //       { success: true, message: "Generation deleted from Mongo & Redis (attempted)." },
