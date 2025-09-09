@@ -24,7 +24,6 @@ export async function PATCH(req: NextRequest, ctx: ParamsCtx) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
-  const generationId = ctx.params.id;
   const { files } = await req.json();
 
   try {
