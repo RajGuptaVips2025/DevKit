@@ -10,8 +10,7 @@ const dbConnect = async () => {
 
   try {
     await mongoose.connect(process.env.MONGO_URI!, {
-      // dbName: "MajorProject", 
-      dbName: "DevitTest", 
+      dbName: "MajorProject",
     });
 
     mongoose.connection.setMaxListeners(20); 

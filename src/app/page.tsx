@@ -19,7 +19,6 @@ import toast from "react-hot-toast";
 import Image from 'next/image';
 import * as Accordion from '@radix-ui/react-accordion';
 import { ChevronDown } from 'lucide-react';
-// import { toast } from "sonner"; // or whichever toast lib you use
 
 axios.defaults.withCredentials = true;
 
@@ -179,6 +178,49 @@ export default function Sidebar() {
     return input.replace(pattern, "React");
   };
 
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!prompt.trim() && !imageFile) return;
+  //   if (isCooldown) return;
+
+  //   const cleanedPrompt = sanitizePromptFramework(prompt);
+  //   setPrompt(cleanedPrompt);
+
+  //   try {
+  //     const res = await fetch("/api/limit");
+  //     const data = await res.json();
+  //     console.log(data)
+
+  //     const { allowed, remaining, reset } = data || {};
+
+  //     if (!allowed || (remaining ?? 0) <= 0) {
+  //       const timeLeft = reset ?? 0;
+  //       const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+  //       const minutes = Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+
+  //       toast.error(
+  //         `Daily limit reached. Try again in ${hours}h ${minutes}m.`
+  //       );
+  //       return;
+  //     }
+
+  //     const token =
+  //       (typeof crypto !== "undefined" && crypto.randomUUID)
+  //         ? crypto.randomUUID()
+  //         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+  //     sessionStorage.setItem("ai-prompt-token", token);
+  //     sessionStorage.setItem("ai-prompt-init", "1");
+  //     localStorage.setItem("ai-prompt-entered", cleanedPrompt);
+
+  //     router.push("/builder");
+  //     startCooldown(60);
+  //   } catch (err) {
+  //     toast.error("Something went wrong. Please try again.");
+  //     console.error(err);
+  //   }
+  // };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() && !imageFile) return;
@@ -188,42 +230,73 @@ export default function Sidebar() {
     setPrompt(cleanedPrompt);
 
     try {
-      const res = await axios.post("/api/limit");
-      const { allowed, remaining, timeLeft } = res.data;
-      if (!allowed) {
+      const res = await fetch("/api/limit");
+      if (!res.ok) throw new Error("Limit check failed");
+      const data = await res.json();
+      const { allowed, remaining, reset, cooldownRemaining } = data || {};
+
+      // server-side cooldown enforcement
+      if (cooldownRemaining && cooldownRemaining > 0) {
+        toast.error(`Please wait ${cooldownRemaining}s before sending another prompt.`);
+        // start a local countdown to reflect server state
+        startCooldown(cooldownRemaining);
+        return;
+      }
+
+      if (!allowed || (remaining ?? 0) <= 0) {
+        const timeLeft = reset ?? 0;
         const hours = Math.floor(timeLeft / (1000 * 60 * 60));
         const minutes = Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
         toast.error(`Daily limit reached. Try again in ${hours}h ${minutes}m.`);
         return;
       }
 
+      // create a token and proceed as before
       const token =
-        (typeof crypto !== 'undefined' && crypto.randomUUID)
+        (typeof crypto !== "undefined" && crypto.randomUUID)
           ? crypto.randomUUID()
           : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      sessionStorage.setItem("ai-prompt-token", token);
+      sessionStorage.setItem("ai-prompt-init", "1");
+      localStorage.setItem("ai-prompt-entered", cleanedPrompt);
 
-      sessionStorage.setItem('ai-prompt-token', token);
-      sessionStorage.setItem('ai-prompt-init', '1');
-      localStorage.setItem('ai-prompt-entered', cleanedPrompt);
+      // start local countdown: either immediate 30s or server-provided value (just in case)
+      const startSeconds = cooldownRemaining && cooldownRemaining > 0 ? cooldownRemaining : 30;
+      startCooldown(startSeconds);
 
-      toast.success(`Prompt allowed! You have ${remaining} prompts left today.`);
-      router.push('/builder');
-      startCooldown(60);
+      router.push("/builder");
     } catch (err) {
       toast.error("Something went wrong. Please try again.");
       console.error(err);
     }
   };
 
+  // useEffect(() => {
+  //   const last = localStorage.getItem("lastPromptTime");
+  //   if (last) {
+  //     const elapsed = Math.floor((Date.now() - Number(last)) / 1000);
+  //     const remaining = 60 - elapsed;
+  //     if (remaining > 0) {
+  //       startCooldown(remaining);
+  //     }
+  //   }
+  // }, [startCooldown]);
+
   useEffect(() => {
-    const last = localStorage.getItem("lastPromptTime");
-    if (last) {
-      const elapsed = Math.floor((Date.now() - Number(last)) / 1000);
-      const remaining = 60 - elapsed;
-      if (remaining > 0) {
-        startCooldown(remaining);
+    // on component mount, ask server for cooldown state
+    const checkCooldown = async () => {
+      try {
+        const res = await fetch("/api/limit");
+        if (!res.ok) return;
+        const data = await res.json();
+        const cooldownRemaining = data?.cooldownRemaining ?? 0;
+        if (cooldownRemaining > 0) startCooldown(cooldownRemaining);
+      } catch (err) {
+        // ignore errors here; UI will be usable
+        console.error("Failed to fetch cooldown:", err);
       }
-    }
+    };
+    checkCooldown();
   }, [startCooldown]);
 
   const handleDeleteHistory = async (id: string) => {
@@ -239,7 +312,6 @@ export default function Sidebar() {
         throw new Error(body?.error || "Failed to delete history");
       }
 
-      // success -> remove from UI state
       setHistory((prev) => {
         if (!prev) return prev;
         return prev.filter((h) => h._id !== id);
@@ -250,30 +322,54 @@ export default function Sidebar() {
     } catch (err) {
       console.error("❌ Failed to delete history:", err);
       toast?.error?.((err as Error).message || "Could not delete item");
-      // optionally show fallback UI or retry
     } finally {
       setDeletingId(null);
     }
   };
 
+  // useEffect(() => {
+  //   setPrompt("");
+  //   setImageFile(null);
+
+  //   const storedEndTime = localStorage.getItem("cooldownEndTime");
+  //   if (storedEndTime) {
+  //     const remaining = Math.max(0, Math.ceil((Number(storedEndTime) - Date.now()) / 1000));
+  //     if (remaining > 0) {
+  //       startCooldown(remaining);
+  //     } else {
+  //       localStorage.removeItem("cooldownEndTime");
+  //     }
+  //   }
+  // }, []);
+
   useEffect(() => {
     setPrompt("");
     setImageFile(null);
 
-    const storedEndTime = localStorage.getItem("cooldownEndTime");
-    if (storedEndTime) {
-      const remaining = Math.max(0, Math.ceil((Number(storedEndTime) - Date.now()) / 1000));
-      if (remaining > 0) {
-        startCooldown(remaining);
-      } else {
-        localStorage.removeItem("cooldownEndTime");
+    // ✅ Ask server for cooldown instead of relying on localStorage
+    const checkCooldown = async () => {
+      try {
+        const res = await fetch("/api/limit");
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const cooldownRemaining = data?.cooldownRemaining ?? 0;
+
+        if (cooldownRemaining > 0) {
+          startCooldown(cooldownRemaining);
+        }
+      } catch (err) {
+        console.error("Failed to fetch cooldown:", err);
       }
-    }
+    };
+
+    checkCooldown();
   }, []);
 
 
+
   const handleClearHistory = async () => {
-    setDeleting(true); // show overlay
+    setDeleting(true);
     try {
       const res = await fetch("/api/generation/delete", {
         method: "DELETE",
@@ -303,7 +399,6 @@ export default function Sidebar() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
-      {/* Header */}
       <div className="w-full flex fixed top-0 justify-between px-5 pt-2 bg-black items-center z-50">
         <div className="top-4 left-6">
           <Link href={"/"} className="text-white font-bold text-xl">
@@ -442,42 +537,8 @@ export default function Sidebar() {
                     >
                       Gemini 2.0 Flash Lite
                     </SelectItem>
-                    <SelectItem
-                      value="gemini-2.0"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.0
-                    </SelectItem>
                   </SelectContent>
                 </Select>
-                {/* <Select value={framework} onValueChange={setFramework}>
-                  <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md mt-2">
-                    <SelectValue placeholder="Select Framework (React or Angular)" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
-                    <SelectItem
-                      value="react"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      React
-                    </SelectItem>
-                    <SelectItem
-                      value="angular"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                      onSelect={() =>
-                        toast(
-                          "⚠️ If dependencies haven't started installing, try refreshing and running again.",
-                          {
-                            icon: "⚠️",
-                            style: { background: "#facc15", color: "#000" },
-                          }
-                        )
-                      }
-                    >
-                      Angular
-                    </SelectItem>
-                  </SelectContent>
-                </Select> */}
                 <Select
                   value={framework}
                   onValueChange={(val) => {
@@ -576,7 +637,12 @@ export default function Sidebar() {
         </Accordion.Root>
 
         <div className="w-full max-w-3xl mt-2 mx-auto flex items-center justify-center gap-3 text-white">
-          <h2 className="text-lg font-semibold whitespace-nowrap">Contributors:</h2>
+          <h2 className="text-lg font-semibold whitespace-nowrap">
+            <a href="https://github.com/RajGuptaVips2025/DevKit"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-500 transition-colors"
+            >Project</a> Contributors:</h2>
           <div className="flex gap-3">
             <a
               href="https://www.linkedin.com/in/raj-gupta-b9b66321a/"

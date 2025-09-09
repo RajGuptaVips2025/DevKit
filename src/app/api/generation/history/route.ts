@@ -12,7 +12,6 @@ interface HistoryEntry {
   modelName: string;
   framework: string;
   user: string;
-  // add other fields if your history has more
 }
 
 interface HistoryEntry {
@@ -21,7 +20,6 @@ interface HistoryEntry {
   modelName: string;
   framework: string;
   user: string;
-  // add other fields if your history has more
 }
 
 export async function GET(req: NextRequest) {

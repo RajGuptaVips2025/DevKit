@@ -14,8 +14,8 @@ interface FileNode {
   name: string;
   type: "file" | "folder";
   path: string;
-  content?: string; // only for type: "file"
-  children?: FileNode[]; // only for type: "folder"
+  content?: string; 
+  children?: FileNode[]; 
 }
 
 export interface IGeneration extends Document {
@@ -23,11 +23,11 @@ export interface IGeneration extends Document {
   imageUrl?: string;
   prompt: string;
   modelName: string;
-  framework: "react" | "angular"; // 👈 strongly typed
+  framework: "react" | "angular"; 
   output: string;
   steps?: Step[];
   files?: FileNode[];
-  source?: "ui" | "api" | "regeneration"; // 👈 optional new field
+  source?: "ui" | "api" | "regeneration";
   createdAt: Date;
 }
 
@@ -42,7 +42,6 @@ const FileNodeSchema: Schema<FileNode> = new Schema(
   { _id: false }
 );
 
-// Recursive reference for nested folders
 FileNodeSchema.add({
   children: [FileNodeSchema],
 });
@@ -67,7 +66,6 @@ const GenerationSchema = new Schema<IGeneration>(
       },
     ],
     files: [FileNodeSchema],
-    // 👇 NEW FIELD
     source: {
       type: String,
       enum: ["ui", "api", "regeneration"],

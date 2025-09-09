@@ -23,6 +23,7 @@
     "@radix-ui/react-toast": "^1.2.4",
     "@stackblitz/sdk": "^1.11.0",
     "@types/jsonwebtoken": "^9.0.7",
+    "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.3",
     "@webcontainer/api": "^1.5.1-internal.5",
     "axios": "^1.7.9",

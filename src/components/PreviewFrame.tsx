@@ -32,6 +32,8 @@ export function PreviewFrame({
   // const hasShownToastRef = useRef(false);
 
   async function main() {
+    console.log('[PreviewFrame] main() starting');
+
     if (!webContainer) {
       console.error("[PreviewFrame] webContainer is not defined");
       return;
@@ -72,6 +74,7 @@ export function PreviewFrame({
     });
   }
 
+  // 👇 Run only when first switch to preview happens
   useEffect(() => {
     if (
       activeTab === "preview" &&

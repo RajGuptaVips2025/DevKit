@@ -25,9 +25,6 @@ export async function DELETE() {
 
     const historyKey = `history:${userId}`;
     const scopedKeys = genIds.map(id => `generation:${userId}:${id}`);
-    // const legacyKeys = genIds.map(id => `generation:${id}`);
-
-    // const keysToDelete = [historyKey, ...scopedKeys, ...legacyKeys];
     const keysToDelete = [historyKey, ...scopedKeys];
 
     for (const k of keysToDelete) {
