@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-// import { GoogleGenerativeAI } from "@google/generative-ai";
 import { basePrompt as nodeBasePrompt } from "../defaults/node";
 import { basePrompt as reactBasePrompt } from "../defaults/react";
 import { basePrompt as angularBasePrompt } from "../defaults/angular";

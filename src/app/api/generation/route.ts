@@ -78,21 +78,13 @@ export async function POST(req: NextRequest) {
     );
 
     await redis.ltrim(`history:${userIdStr}`, 0, 9);
-
-    // await redis.set(
-    //   `generation:${userIdStr}:${genIdStr}`,
-    //   JSON.stringify(payload),
-    //   { ex: 60 * 5 }
-    // );
-
-    // cache generation object (use helper)
+    
     await redisHelpers.setJson(
       `generation:${userIdStr}:${genIdStr}`,
       payload,
       { ex: 60 * 5 }
     );
 
-    // ✅ set 30s cooldown for this user
     const cooldownKey = `cooldown:${userIdStr}`;
     try {
       await redis.set(cooldownKey, Date.now().toString(), { ex: 30 });
@@ -110,7 +102,7 @@ export async function POST(req: NextRequest) {
       await Generation.deleteMany({ _id: { $in: idsToDelete } });
     }
 
-    const cooldownTtl = await redis.ttl(cooldownKey); // returns seconds
+    const cooldownTtl = await redis.ttl(cooldownKey);
 
     return NextResponse.json({ success: true, generation: newGeneration, cooldownRemaining: cooldownTtl > 0 ? cooldownTtl : 0 });
   } catch (error) {

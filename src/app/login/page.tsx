@@ -21,7 +21,7 @@ export default function LoginPage() {
   }, [status, session]);
 
   if (status === "loading") return <p className="text-white text-center mt-10">Loading...</p>;
-  if (status === "authenticated" && session?.user?.id) return null; // Prevent flashing login page
+  if (status === "authenticated" && session?.user?.id) return null; 
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">

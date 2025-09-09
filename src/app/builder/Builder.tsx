@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -99,12 +97,10 @@ export default function Builder({ id }: BuilderProps) {
       setSteps(parsedInitialSteps);
       setUiPrompt(uiPrompts);
 
-      // prepare for chat call
       formData.append('prompts', JSON.stringify(prompts));
       formData.append('uiprompt', uiPrompts);
       formData.append('framework', storeFramework?.trim() || '');
 
-      // chat call
       const stepsResponse = await axios.post('/api/chat', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -386,7 +382,7 @@ export default function Builder({ id }: BuilderProps) {
     webcontainer?.mount(mountStructure);
   }, [files, webcontainer]);
 
- 
+
 
   function updateFileContent(
     items: FileItem[],
@@ -427,7 +423,7 @@ export default function Builder({ id }: BuilderProps) {
 
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const DEBOUNCE_DELAY = 4000; // 3 seconds
+  const DEBOUNCE_DELAY = 4000;
 
   const handleCodeChange = (updatedFile: FileItem) => {
     if (files.length === 0) {
@@ -435,18 +431,15 @@ export default function Builder({ id }: BuilderProps) {
       return;
     }
 
-    // 1. Update file in state immediately (instant feedback)
     const updated = updateFileContent(files, updatedFile);
     setFiles(updated);
 
-    // 2. Track edited paths
     setEditedPaths(prev => {
       const newSet = new Set(prev);
       newSet.add(updatedFile.path);
       return newSet;
     });
 
-    // 3. Debounce backend sync
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
@@ -470,21 +463,21 @@ export default function Builder({ id }: BuilderProps) {
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      {/* Header */}
       <div className="w-full bg-black border-b border-[#2c2c3a] px-6 py-3 flex justify-between items-center">
         <Link href="/" className="text-white font-bold text-2xl tracking-tight">DevKit</Link>
-        <button
-          className="text-white hover:bg-[#2a2a3d] p-2 rounded"
-        // onClick={() => localStorage.clear()}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
       </div>
 
       <div className="px-4">
-        <p className="text-sm text-white mt-1 italic">Prompt: {!effectiveId ? storePrompt : builderpromptValue}</p>
+        <p
+          className="text-sm text-white mt-1 italic cursor-help"
+          title={!effectiveId ? storePrompt : builderpromptValue} // show full text on hover
+        >
+          Prompt: {
+            (!effectiveId ? storePrompt : builderpromptValue).length > 25
+              ? (!effectiveId ? storePrompt : builderpromptValue).slice(0, 25) + "..."
+              : (!effectiveId ? storePrompt : builderpromptValue)
+          }
+        </p>
       </div>
 
       {/* Desktop Layout */}

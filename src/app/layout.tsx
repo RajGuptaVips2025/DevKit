@@ -31,8 +31,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SessionProviderWrapper>
-          {/* <Toaster/> */}
-          {/* <Toaster/> */}
           <Toaster
               position="top-center"
               reverseOrder={false}
@@ -40,7 +38,6 @@ export default function RootLayout({
               containerClassName=""
               containerStyle={{}}
               toastOptions={{
-                // Define default options
                 className: '',
                 duration: 5000,
                 removeDelay: 1000,
@@ -49,7 +46,6 @@ export default function RootLayout({
                   color: '#fff',
                 },
 
-                // Default options for specific types
                 success: {
                   duration: 3000,
                   iconTheme: {
@@ -58,7 +54,7 @@ export default function RootLayout({
                   },
                 },
                 error: {
-                  duration: 4000, // <-- Set your desired duration here
+                  duration: 4000,
                   iconTheme: {
                     primary: 'red',
                     secondary: 'black',

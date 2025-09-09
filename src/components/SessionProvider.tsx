@@ -8,7 +8,6 @@ function SessionWatcher({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (status === "authenticated" && !session?.user?.id) {
-      // Auto logout and redirect to /login immediately
       signOut({ redirect: true, callbackUrl: "/login" });
     }
   }, [status, session]);

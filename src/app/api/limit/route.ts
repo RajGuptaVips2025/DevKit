@@ -11,7 +11,6 @@ const ratelimit = new Ratelimit({
   limiter: Ratelimit.tokenBucket(10, "24 h", 10),
 });
 
-// existing GET /api/limit route (or the GET route you use to check limits)
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -20,11 +19,10 @@ export async function GET() {
   const identifier = `user:${session.user.id}`;
   const { remaining, reset } = await ratelimit.getRemaining(identifier);
 
-  // read cooldown TTL from redis
   const cooldownKey = `cooldown:${session.user.id}`;
   let cooldownRemaining = 0;
   try {
-    const ttlSeconds = await redis.ttl(cooldownKey); // returns -2 (no key), -1 (no ttl), or seconds
+    const ttlSeconds = await redis.ttl(cooldownKey);
     cooldownRemaining = ttlSeconds > 0 ? ttlSeconds : 0;
   } catch (err) {
     console.error("Failed to read cooldown TTL:", err);
@@ -35,31 +33,7 @@ export async function GET() {
     allowed: remaining > 0,
     remaining,
     reset,
-    cooldownRemaining, // seconds
+    cooldownRemaining,
   });
 }
-
-
-
-
-
-
-
-
-
-// export async function GET() {
-//   const session = await getServerSession(authOptions);
-//   if (!session?.user?.id) {
-//     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-//   }
-
-//   const identifier = `user:${session.user.id}`;
-//   const { remaining, reset } = await ratelimit.getRemaining(identifier);
-
-//   return NextResponse.json({
-//     allowed: remaining > 0,
-//     remaining,
-//     reset, 
-//   });
-// }
 

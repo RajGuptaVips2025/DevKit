@@ -4,8 +4,8 @@ export interface IUser extends Document {
   _id: Types.ObjectId;  
   name: string;
   email: string;
-  lastPromptTime?: Date;     // for 24-hour daily prompt tracking
-  lastCooldownTime?: Date;   // for 60-second cooldown tracking
+  lastPromptTime?: Date; 
+  lastCooldownTime?: Date;   
   dailyPromptCount?: number;
 }
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { ArrowRight, FileIcon, Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -54,6 +54,14 @@ export default function Sidebar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const models = [
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash", badge: "Suggested (Fastest)" },
+    { value: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash (05-20 Preview)", badge: "Preview" },
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", badge: "High Quality" },
+    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro", badge: "Fallback" },
+    { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", badge: "Lightweight" },
+  ];
 
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });
@@ -135,25 +143,11 @@ export default function Sidebar() {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchHistory]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setImageFile(file);
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
-    }
-  };
-
   const sanitizePromptFramework = (input: string): string => {
     const forbiddenFrameworks = [
       "vue",
       "svelte",
-      "next\\.js", // if you only want React
+      "next\\.js",
       "nuxt",
       "ember",
       "solidjs",
@@ -170,56 +164,13 @@ export default function Sidebar() {
       "php",
       "django",
       "laravel",
-      "node\\.js", // optional
+      "node\\.js",
     ];
 
     const pattern = new RegExp(`\\b(${forbiddenFrameworks.join("|")})\\b`, "gi");
 
     return input.replace(pattern, "React");
   };
-
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (!prompt.trim() && !imageFile) return;
-  //   if (isCooldown) return;
-
-  //   const cleanedPrompt = sanitizePromptFramework(prompt);
-  //   setPrompt(cleanedPrompt);
-
-  //   try {
-  //     const res = await fetch("/api/limit");
-  //     const data = await res.json();
-  //     console.log(data)
-
-  //     const { allowed, remaining, reset } = data || {};
-
-  //     if (!allowed || (remaining ?? 0) <= 0) {
-  //       const timeLeft = reset ?? 0;
-  //       const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-  //       const minutes = Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-
-  //       toast.error(
-  //         `Daily limit reached. Try again in ${hours}h ${minutes}m.`
-  //       );
-  //       return;
-  //     }
-
-  //     const token =
-  //       (typeof crypto !== "undefined" && crypto.randomUUID)
-  //         ? crypto.randomUUID()
-  //         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-
-  //     sessionStorage.setItem("ai-prompt-token", token);
-  //     sessionStorage.setItem("ai-prompt-init", "1");
-  //     localStorage.setItem("ai-prompt-entered", cleanedPrompt);
-
-  //     router.push("/builder");
-  //     startCooldown(60);
-  //   } catch (err) {
-  //     toast.error("Something went wrong. Please try again.");
-  //     console.error(err);
-  //   }
-  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,23 +186,22 @@ export default function Sidebar() {
       const data = await res.json();
       const { allowed, remaining, reset, cooldownRemaining } = data || {};
 
-      // server-side cooldown enforcement
       if (cooldownRemaining && cooldownRemaining > 0) {
         toast.error(`Please wait ${cooldownRemaining}s before sending another prompt.`);
-        // start a local countdown to reflect server state
         startCooldown(cooldownRemaining);
         return;
       }
 
       if (!allowed || (remaining ?? 0) <= 0) {
+        console.log(reset)
         const timeLeft = reset ?? 0;
+        console.log("Time left for limit reset (ms):", timeLeft);
         const hours = Math.floor(timeLeft / (1000 * 60 * 60));
         const minutes = Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
         toast.error(`Daily limit reached. Try again in ${hours}h ${minutes}m.`);
         return;
       }
 
-      // create a token and proceed as before
       const token =
         (typeof crypto !== "undefined" && crypto.randomUUID)
           ? crypto.randomUUID()
@@ -260,10 +210,8 @@ export default function Sidebar() {
       sessionStorage.setItem("ai-prompt-init", "1");
       localStorage.setItem("ai-prompt-entered", cleanedPrompt);
 
-      // start local countdown: either immediate 30s or server-provided value (just in case)
       const startSeconds = cooldownRemaining && cooldownRemaining > 0 ? cooldownRemaining : 30;
       startCooldown(startSeconds);
-
       router.push("/builder");
     } catch (err) {
       toast.error("Something went wrong. Please try again.");
@@ -271,19 +219,7 @@ export default function Sidebar() {
     }
   };
 
-  // useEffect(() => {
-  //   const last = localStorage.getItem("lastPromptTime");
-  //   if (last) {
-  //     const elapsed = Math.floor((Date.now() - Number(last)) / 1000);
-  //     const remaining = 60 - elapsed;
-  //     if (remaining > 0) {
-  //       startCooldown(remaining);
-  //     }
-  //   }
-  // }, [startCooldown]);
-
   useEffect(() => {
-    // on component mount, ask server for cooldown state
     const checkCooldown = async () => {
       try {
         const res = await fetch("/api/limit");
@@ -292,7 +228,6 @@ export default function Sidebar() {
         const cooldownRemaining = data?.cooldownRemaining ?? 0;
         if (cooldownRemaining > 0) startCooldown(cooldownRemaining);
       } catch (err) {
-        // ignore errors here; UI will be usable
         console.error("Failed to fetch cooldown:", err);
       }
     };
@@ -327,26 +262,10 @@ export default function Sidebar() {
     }
   };
 
-  // useEffect(() => {
-  //   setPrompt("");
-  //   setImageFile(null);
-
-  //   const storedEndTime = localStorage.getItem("cooldownEndTime");
-  //   if (storedEndTime) {
-  //     const remaining = Math.max(0, Math.ceil((Number(storedEndTime) - Date.now()) / 1000));
-  //     if (remaining > 0) {
-  //       startCooldown(remaining);
-  //     } else {
-  //       localStorage.removeItem("cooldownEndTime");
-  //     }
-  //   }
-  // }, []);
-
   useEffect(() => {
     setPrompt("");
     setImageFile(null);
 
-    // ✅ Ask server for cooldown instead of relying on localStorage
     const checkCooldown = async () => {
       try {
         const res = await fetch("/api/limit");
@@ -377,7 +296,7 @@ export default function Sidebar() {
 
       if (!res.ok) throw new Error("Failed to clear history");
 
-      setHistory([]);   // reset history state
+      setHistory([]);
       setSkip(0);
       setHasMore(true);
       fetchHistory();
@@ -386,7 +305,7 @@ export default function Sidebar() {
       console.error("❌ Error clearing history:", error);
       alert("Failed to clear history.");
     } finally {
-      setDeleting(false); // hide overlay
+      setDeleting(false);
     }
   };
 
@@ -467,14 +386,6 @@ export default function Sidebar() {
               rows={imagePreview ? 3 : 4}
             />
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept="image/png, image/jpeg, image/webp" // Restrict to image files
-            />
-
             <Popover>
               <PopoverTrigger asChild className="absolute bottom-4 left-3">
                 <button
@@ -490,53 +401,35 @@ export default function Sidebar() {
                 align="start"
                 className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl w-64 space-y-3"
               >
-                <div className="flex gap-3">
-                  <button
-                    title="Upload file"
-                    type="button"
-                    className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-700 text-white transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <FileIcon size={18} />
-                  </button>
-                </div>
-
                 <Select value={model} onValueChange={setModel}>
                   <SelectTrigger className="w-full bg-zinc-900 hover:bg-zinc-700 border border-zinc-700 text-white text-sm rounded-md">
                     <SelectValue placeholder="Choose Gemini model" />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border border-zinc-700 text-white">
-
-                    <SelectItem
-                      value="gemini-2.5-flash"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.5 Flash
-                    </SelectItem>
-                    <SelectItem
-                      value="gemini-2.5-flash-preview-05-20"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.5 Flash (05‑20 preview)
-                    </SelectItem>
-                    <SelectItem
-                      value="gemini-2.5-pro"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.5 pro
-                    </SelectItem>
-                    <SelectItem
-                      value="gemini-1.5-pro"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 1.5 pro
-                    </SelectItem>
-                    <SelectItem
-                      value="gemini-2.0-flash-lite"
-                      className="hover:bg-zinc-700 text-white cursor-pointer"
-                    >
-                      Gemini 2.0 Flash Lite
-                    </SelectItem>
+                    {models.map((m) => (
+                      <SelectItem
+                        key={m.value}
+                        value={m.value}
+                        className="hover:bg-zinc-700 text-white cursor-pointer flex justify-between items-center"
+                      >
+                        <span>{m.label}</span>
+                        {m.badge && (
+                          <span
+                            className={`ml-2 text-[10px] px-2 py-0.5 rounded 
+                               ${m.value === "gemini-2.5-flash"
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : m.value.includes("preview")
+                                  ? "bg-blue-500/20 text-blue-400"
+                                  : m.value.includes("pro")
+                                    ? "bg-purple-500/20 text-purple-400"
+                                    : "bg-zinc-600/30 text-zinc-300"
+                              }`}
+                          >
+                            {m.badge}
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Select
@@ -551,7 +444,7 @@ export default function Sidebar() {
                         </div>,
                         {
                           style: { background: "#fde047", color: "#000", cursor: "pointer" },
-                          duration: 5000, // 5 seconds
+                          duration: 5000,
                         }
                       );
 

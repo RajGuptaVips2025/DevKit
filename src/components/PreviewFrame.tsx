@@ -24,12 +24,9 @@ export function PreviewFrame({
   const [url, setUrl] = useState("");
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const installStartedRef = useRef(false);
-  const [installStarted, setInstallStarted] = useState(false); // 👈 track install state
-
-  // 🔑 store process references
+  const [installStarted, setInstallStarted] = useState(false);
   const installProcessRef = useRef<any>(null);
   const devProcessRef = useRef<any>(null);
-  // const hasShownToastRef = useRef(false);
 
   async function main() {
     console.log('[PreviewFrame] main() starting');
@@ -41,14 +38,13 @@ export function PreviewFrame({
 
 
     const installProcess = await webContainer.spawn("npm", ["install"]);
-    installProcessRef.current = installProcess; // save ref
+    installProcessRef.current = installProcess;
 
     let outputLength = 0;
 
     const writable = new WritableStream({
-      write(chunk: any, data) {
-        console.log(data);
-        if (!installStarted) setInstallStarted(true); // 👈 flip when first output comes
+      write(chunk: any) {
+        if (!installStarted) setInstallStarted(true);
         installStartedRef.current = true;
         outputLength += chunk?.length ?? 0;
         const progress = Math.min(100, Math.floor((outputLength / 10000) * 100));
@@ -59,13 +55,12 @@ export function PreviewFrame({
     installProcess.output.pipeTo(writable);
     await installProcess.exit;
 
-    // run dev server
     const devProcess =
       framework === "angular"
         ? await webContainer.spawn("ng", ["serve"])
         : await webContainer.spawn("npm", ["run", "dev"]);
 
-    devProcessRef.current = devProcess; // save ref
+    devProcessRef.current = devProcess;
 
     webContainer.on("server-ready", (port: number, serverUrl: string) => {
       console.log("[PreviewFrame] server-ready", port, serverUrl);
@@ -74,7 +69,6 @@ export function PreviewFrame({
     });
   }
 
-  // 👇 Run only when first switch to preview happens
   useEffect(() => {
     if (
       activeTab === "preview" &&
@@ -90,11 +84,11 @@ export function PreviewFrame({
   useEffect(() => {
     return () => {
       if (installProcessRef.current) {
-        installProcessRef.current.kill(); // stop npm install
+        installProcessRef.current.kill();
         installProcessRef.current = null;
       }
       if (devProcessRef.current) {
-        devProcessRef.current.kill(); // stop dev server
+        devProcessRef.current.kill();
         devProcessRef.current = null;
       }
     };
@@ -112,6 +106,31 @@ export function PreviewFrame({
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, []);
+
+  // useEffect(() => {
+  //   let lastMessage = "";
+
+  //   const handler = (event: MessageEvent) => {
+  //     const { type, message } = event.data || {};
+  //     if (!type || !message) return;
+
+  //     const key = `${type}:${message}`;
+  //     if (lastMessage === key) return; // skip duplicate
+
+  //     lastMessage = key;
+
+  //     if (type === "runtime-error") {
+  //       toast.error(`Runtime Error: ${message}`);
+  //     }
+  //     if (type === "unhandled-rejection") {
+  //       toast.error(`Unhandled Rejection: ${message}`);
+  //     }
+  //   };
+
+  //   window.addEventListener("message", handler);
+  //   return () => window.removeEventListener("message", handler);
+  // }, []);
+
 
   return (
     <div className="h-full flex items-start justify-center text-gray-400">
