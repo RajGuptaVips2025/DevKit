@@ -1,40 +1,65 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import User from "@/models/userModel";
-import dbConnect from "@/dbConfig/dbConfig";
 import { authOptions } from "../auth/[...nextauth]/authOptions";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis as UpstashRedis } from "@upstash/redis";
+import redis from "@/lib/redis";
 
-export async function POST() {
-  await dbConnect();
+const redisUpstash = UpstashRedis.fromEnv();
+const ratelimit = new Ratelimit({
+  redis: redisUpstash,
+  limiter: Ratelimit.tokenBucket(10, "24 h", 10),
+});
+
+// existing GET /api/limit route (or the GET route you use to check limits)
+export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.email) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const identifier = `user:${session.user.id}`;
+  const { remaining, reset } = await ratelimit.getRemaining(identifier);
 
-  const user = await User.findOne({ email: session.user.email });
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  // read cooldown TTL from redis
+  const cooldownKey = `cooldown:${session.user.id}`;
+  let cooldownRemaining = 0;
+  try {
+    const ttlSeconds = await redis.ttl(cooldownKey); // returns -2 (no key), -1 (no ttl), or seconds
+    cooldownRemaining = ttlSeconds > 0 ? ttlSeconds : 0;
+  } catch (err) {
+    console.error("Failed to read cooldown TTL:", err);
+    cooldownRemaining = 0;
   }
 
-  const now = new Date();
-  const lastTime = user.lastPromptTime || new Date(0);
-  const count = user.dailyPromptCount ?? 0;
-
-  const isReset = now.getTime() - lastTime.getTime() > 24 * 60 * 60 * 1000;
-
-  if (isReset) {
-    user.dailyPromptCount = 1;
-    user.lastPromptTime = now;
-    await user.save();
-    return NextResponse.json({ allowed: true, remaining: 4 });
-  }
-
-  if (count >= 150  ) {
-    const timeLeft = 24 * 60 * 60 * 1000 - (now.getTime() - lastTime.getTime());
-    return NextResponse.json({ allowed: false, timeLeft });
-  }
-
-  user.dailyPromptCount = count + 1;
-  await user.save();
-  return NextResponse.json({ allowed: true, remaining: 5 - user.dailyPromptCount });
+  return NextResponse.json({
+    allowed: remaining > 0,
+    remaining,
+    reset,
+    cooldownRemaining, // seconds
+  });
 }
+
+
+
+
+
+
+
+
+
+// export async function GET() {
+//   const session = await getServerSession(authOptions);
+//   if (!session?.user?.id) {
+//     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+//   }
+
+//   const identifier = `user:${session.user.id}`;
+//   const { remaining, reset } = await ratelimit.getRemaining(identifier);
+
+//   return NextResponse.json({
+//     allowed: remaining > 0,
+//     remaining,
+//     reset, 
+//   });
+// }
+

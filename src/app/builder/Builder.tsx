@@ -71,12 +71,12 @@ export default function Builder({ id }: BuilderProps) {
       const storedToken = typeof window !== 'undefined' ? sessionStorage.getItem('ai-prompt-token') : null;
 
       if ((!storePrompt || storePrompt.trim() === '') && !storeImageFile) {
-        toast.error('Generation blocked: please use the input box and click Generate.', {duration: 4000});
+        toast.error('Generation blocked: please use the input box and click Generate.', { duration: 4000 });
         router.push('/');
         return;
       }
       if (!storedInit || !storedToken) {
-        toast.error('Generation blocked: please use the input box and click Generate.', {duration: 4000});
+        toast.error('Generation blocked: please use the input box and click Generate.', { duration: 4000 });
         router.push('/');
         return;
       }
@@ -126,7 +126,6 @@ export default function Builder({ id }: BuilderProps) {
       ]);
       setActiveTab('preview');
 
-      // save to DB (same as before), pass `source: 'ui'` so server accepts it
       const saveResponse = await axios.post('/api/generation', {
         prompt: storePrompt?.trim(),
         modelName: storeModel,
@@ -142,11 +141,10 @@ export default function Builder({ id }: BuilderProps) {
       const generationId = saveResponse.data?.generation?._id;
       if (!generationId) throw new Error('Generation ID missing');
 
-      // router.replace(`/builder/${generationId}`);
       setGetDbId(generationId);
       window.history.replaceState(null, "", `/builder/${generationId}`);
       sessionStorage.removeItem('ai-prompt-init');
-      localStorage.removeItem('ai-prompt-entered'); // ✅ clear entered prompt
+      localStorage.removeItem('ai-prompt-entered');
       localStorage.setItem('lastPromptTime', Date.now().toString());
     }
     catch (error: any) {
@@ -194,43 +192,6 @@ export default function Builder({ id }: BuilderProps) {
         router.push("/");
       }
     }
-    // catch (error: any) {
-    //   console.error('❌ Caught error in init():', error);
-
-    //   const status = error?.status || error?.response?.status || null;
-
-    //   if (status) {
-    //     switch (status) {
-    //       case 400:
-    //         toast.error("Bad request. Please check your input and try again.", { duration: 4000 });
-    //         break;
-    //       case 401:
-    //         toast.error("Unauthorized. Please check your API key or login session.", { duration: 4000 });
-    //         break;
-    //       case 403:
-    //         toast.error("Access denied. You don’t have permission to use this model. Try again later or use a different model.", { duration: 4000 });
-    //         break;
-    //       case 404:
-    //         toast.error("Requested model or resource not found may be unavailable. Try again later or use a different model.", { duration: 4000 });
-    //         break;
-    //       case 429:
-    //         toast.error("Output Quota exceeded. Try again later or use a different model.", { duration: 4000 });
-    //         break;
-    //       case 500:
-    //       case 503:
-    //         toast.error("API servers are overloaded. Try again later or use a different model.", { duration: 4000 });
-    //         break;
-    //       default:
-    //         toast.error("An unexpected error occurred. Try again later or use a different model.", { duration: 4000 });
-    //         break;
-    //     }
-    //   } else if (error?.isApiError) {
-    //     toast.error(error.message || "API error occurred.", { duration: 4000 });
-    //   } else {
-    //     toast.error("An unknown error occurred. Please check your connection.", { duration: 4000 });
-    //   }
-    //   router.push('/');
-    // } 
     finally {
       setLoading(false);
     }
@@ -284,32 +245,23 @@ export default function Builder({ id }: BuilderProps) {
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
+
     const checkLimit = async () => {
       try {
         if (effectiveId) {
           skipStepsUpdateRef.current = true;
           fromDB();
         } else {
-          const response = await axios.post("/api/limit", {
-            email: session?.user?.email,
-          });
-          const { limitReached } = response.data;
-          if (limitReached) {
-            toast.error("❌ You’ve reached your daily limit of 5 prompts.");
-            router.push("/");
-            return;
-          }
-
-
           init();
         }
       } catch (error: any) {
         router.push("/");
-        toast.error("❌ You’ve reached your daily limit of 5 prompts.", error);
+        toast.error("❌ Something went wrong with prompt generation.", error);
       }
     };
     checkLimit();
   }, [prompt, effectiveId]);
+
 
   useEffect(() => {
     if (skipStepsUpdateRef.current) return;
@@ -433,6 +385,8 @@ export default function Builder({ id }: BuilderProps) {
     const mountStructure = createMountStructure(files);
     webcontainer?.mount(mountStructure);
   }, [files, webcontainer]);
+
+ 
 
   function updateFileContent(
     items: FileItem[],
@@ -568,6 +522,7 @@ export default function Builder({ id }: BuilderProps) {
               }
             }}
             loading={loading}
+            showStepsOnMobile={false}
           />
           <div className="flex-1 mt-2 bg-black rounded-lg overflow-auto p-3 border border-[#2a2a3d]">
             <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
@@ -610,7 +565,7 @@ export default function Builder({ id }: BuilderProps) {
       {/* Mobile Tab Layout */}
       <div className="block md:hidden p-2 h-[calc(100vh-8rem)]">
         <div className="rounded-xl p-4 h-full border border-[#2c2c3a] bg-[#1a1a1d] shadow-xl flex flex-col">
-          <TabView activeTab={activeTab} onTabChange={setActiveTab} />
+          <TabView activeTab={activeTab} onTabChange={setActiveTab} showStepsOnMobile={false} />
 
           <div className="flex-1 mt-2 bg-black rounded-lg overflow-auto p-3 border border-[#2a2a3d]">
             {activeTab === 'steps' && (
@@ -697,23 +652,3 @@ export default function Builder({ id }: BuilderProps) {
     </div>
   );
 }
-
-
-// useEffect(() => {
-//   const fetchGeneration = async () => {
-//     if (!effectiveId) return;
-//     try {
-//       const res = await axios.get(`/api/generation/${effectiveId}`);
-//       setGetDbId(res.data.generation._id);
-
-//       if (res.data.generation.files?.length > 0) {
-//         setFiles(res.data.generation.files);
-//       }
-//     } catch (err) {
-//       console.error("❌ Failed to fetch generation", err);
-//     }
-//   };
-
-//   fetchGeneration();
-//   console.log("fetchGeneration is called");
-// }, [effectiveId]);
