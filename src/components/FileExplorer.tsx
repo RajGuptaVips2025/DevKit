@@ -6,7 +6,7 @@ interface FileExplorerProps {
   files: FileItem[];
   onFileSelect: (file: FileItem) => void;
   onTabChange: (tab: 'code' | 'preview') => void;
-  loading: boolean; // 👈 new prop
+  loading: boolean;
 }
 
 interface FileNodeProps {

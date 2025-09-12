@@ -7,7 +7,6 @@ import { Step, FileItem, StepType } from '../types';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { parseXml } from '../types/steps';
 import axios from 'axios';
-import { Button } from '@/components/ui/button';
 import { StepsList } from '@/components/StepsList';
 import { Loader } from '@/components/Loader';
 import { TabView } from '@/components/TabView';
@@ -21,6 +20,9 @@ import { CheckCircle, Circle, Clock } from 'lucide-react';
 import { useBuildStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
+import { openInStackBlitz } from "@/lib/stackblitz";
+import { MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type BuilderProps = {
   id?: string;
@@ -50,6 +52,8 @@ export default function Builder({ id }: BuilderProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_uiPrompts, setUiPrompt] = useState<string>("")
   const [builderpromptValue, setBuilderPromptValue] = useState<string>("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [stackblitzLoading, setStackblitzLoading] = useState(false);
   const { data: session } = useSession();
   const skipStepsUpdateRef = useRef(false);
 
@@ -461,10 +465,48 @@ export default function Builder({ id }: BuilderProps) {
     }, DEBOUNCE_DELAY);
   };
 
+
+  const handleOpenInStackBlitz = () => {
+    openInStackBlitz(files); // <-- your useState<FileItem[]> files
+  };
+
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      <div className="w-full bg-black border-b border-[#2c2c3a] px-6 py-3 flex justify-between items-center">
-        <Link href="/" className="text-white font-bold text-2xl tracking-tight">DevKit</Link>
+
+      <div className="w-full bg-black border-b border-[#2c2c3a] px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="text-white font-bold text-2xl tracking-tight">
+          DevKit
+        </Link>
+
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`p-2 rounded-md ${loading || stackblitzLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800"}`}
+                disabled={loading || stackblitzLoading}
+                aria-label="More actions"
+              >
+                <MoreVertical className="w-5 h-5 text-white" />
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="bg-[#1a1a1d] text-white border border-[#2c2c3a] rounded-md shadow-lg">
+              <DropdownMenuItem
+                onClick={!loading ? handleExportZip : undefined}
+                className={`cursor-pointer ${loading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-700"}`}
+              >
+                📦 Export ZIP
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={handleOpenInStackBlitz}
+                className={`cursor-pointer ${loading || stackblitzLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-700"}`}
+              >
+                {stackblitzLoading ? "⚡ Opening…" : "⚡ Open in StackBlitz"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="px-4">
@@ -494,13 +536,35 @@ export default function Builder({ id }: BuilderProps) {
         <div className="w-[20%] bg-[#1a1a1d] rounded-xl p-2 text-white border border-[#2c2c3a] shadow-md overflow-auto scrollbar-hide">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-md -tracking-tighte font-semibold">📁 File Explorer</h2>
-            <Button
-              onClick={!loading ? handleExportZip : undefined}
-              className={`group relative flex items-center gap-2
-                ${loading ? "opacity-50 cursor-not-allowed pointer-events-auto" : ""}`}
-            >
-              Export ZIP
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* shadcn dropdown (if available) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={`p-2 rounded-md ${loading || stackblitzLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800"}`}
+                    disabled={loading || stackblitzLoading}
+                  >
+                    <MoreVertical className="w-5 h-5 text-white" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="bg-[#1a1a1d] text-white border border-[#2c2c3a] rounded-md shadow-lg">
+                  <DropdownMenuItem
+                    onClick={!loading ? handleExportZip : undefined}
+                    className={`cursor-pointer ${loading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-700"}`}
+                  >
+                    📦 Export ZIP
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={handleOpenInStackBlitz}
+                    className={`cursor-pointer ${loading || stackblitzLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-700"}`}
+                  >
+                    {stackblitzLoading ? "⚡ Opening…" : "⚡ Open in StackBlitz"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <FileExplorer onTabChange={setActiveTab} files={files} onFileSelect={setSelectedFile} loading={loading} />
         </div>

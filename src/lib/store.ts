@@ -24,7 +24,6 @@ export const useBuildStore = create<BuildState>((set) => {
     }
 
     const endTime = Date.now() + seconds * 1000;
-    // localStorage.setItem("cooldownEndTime", endTime.toString());
 
     set({ isCooldown: true, cooldownTime: seconds });
 

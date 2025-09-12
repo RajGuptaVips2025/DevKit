@@ -26,7 +26,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="bg-zinc-900 rounded-2xl shadow-lg p-10 w-full max-w-sm text-center space-y-6">
-        <h1 className="text-3xl font-bold text-white">Login</h1>
+        <h1 className="text-3xl font-bold text-white">Login To Devkit</h1>
         <button
           onClick={() =>
             signIn("google", {

@@ -439,15 +439,15 @@ export default function Sidebar() {
                     if (val === "angular") {
                       toast(
                         <div className="text-justify">
-                          Angular framework is not fully optimized for preview. You’ll receive the code,
-                          but the live preview may consume extra resources and might not run smoothly.
+                          Angular projects are not fully optimized for live preview in DevKit, as they
+                          require higher memory and resources. For the best experience, we recommend
+                          opening the project directly in <b>StackBlitz</b>.
                         </div>,
                         {
                           style: { background: "#fde047", color: "#000", cursor: "pointer" },
-                          duration: 5000,
+                          duration: 6500,
                         }
                       );
-
                     }
                   }}
                 >
