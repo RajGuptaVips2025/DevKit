@@ -29,13 +29,10 @@ export function PreviewFrame({
   const devProcessRef = useRef<any>(null);
 
   async function main() {
-    console.log('[PreviewFrame] main() starting');
-
     if (!webContainer) {
       console.error("[PreviewFrame] webContainer is not defined");
       return;
     }
-
 
     const installProcess = await webContainer.spawn("npm", ["install"]);
     installProcessRef.current = installProcess;
